@@ -3,7 +3,6 @@ import client from './client';
 /**
  * 사용자의 계좌 목록 조회
  * @param {string} username
- * @returns {Promise<Array<{accountAddress: string, accountType: string, balance: number}>>}
  */
 export const getAccounts = async (username) => {
     const response = await client.get('/account', {
@@ -15,9 +14,40 @@ export const getAccounts = async (username) => {
 /**
  * 계좌 상세 조회
  * @param {string} accountAddress
- * @returns {Promise<{accountAddress: string, accountType: string, balance: number, ownerUsername: string}>}
  */
 export const getAccountDetail = async (accountAddress) => {
     const response = await client.get(`/account/${accountAddress}`);
+    return response.data;
+};
+
+/**
+ * 일반(메인) 계좌 생성
+ * @param {string} username
+ */
+export const createGeneralAccount = async (username) => {
+    const response = await client.post('/account/general', { username });
+    return response.data;
+};
+
+/**
+ * 적금 계좌 생성
+ * @param {string} linkedAccountAddress - 연결할 일반 계좌 주소
+ * @param {string} username
+ */
+export const createSavingAccount = async (linkedAccountAddress, username) => {
+    const response = await client.post('/account/saving', {
+        linkedAccountAddress,
+        username,
+    });
+    return response.data;
+};
+
+/**
+ * 일반 계좌 충전
+ * @param {string} accountAddress
+ * @param {number} amount
+ */
+export const chargeGeneralAccount = async (accountAddress, amount) => {
+    const response = await client.post(`/account/general/${accountAddress}/charge`, { amount });
     return response.data;
 };
