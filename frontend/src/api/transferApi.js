@@ -34,3 +34,13 @@ export const transferBetweenAccounts = async (senderAccountAddress, receiverAcco
     });
     return response.data;
 };
+
+/**
+ * 이체내역 조회
+ * @param {string} accountAddress
+ * @returns {Promise<Array<{id, senderAddress, receiverAddress, amount, type, status, createdAt, completedAt, failureReason}>>}
+ */
+export const getTransferHistory = async (accountAddress) => {
+    const response = await client.get(`/transfer/history/${accountAddress}`);
+    return response.data;
+};

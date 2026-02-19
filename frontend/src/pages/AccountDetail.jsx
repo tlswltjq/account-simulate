@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getAccountDetail, getAccounts } from '../api/accountApi';
-import { chargeAccount, depositToSaving, transferBetweenAccounts } from '../api/transferApi';
+import { chargeAccount, depositToSaving, transferBetweenAccounts, getTransferHistory } from '../api/transferApi';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
 
@@ -539,6 +539,8 @@ const AccountDetail = () => {
     const [chargeSuccess, setChargeSuccess] = useState(false);
     const [depositSuccess, setDepositSuccess] = useState(false);
     const [transferSuccess, setTransferSuccess] = useState(false);
+    const [transferHistory, setTransferHistory] = useState([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
 
     const fetchDetail = async () => {
         try {
@@ -564,15 +566,29 @@ const AccountDetail = () => {
         }
     };
 
+    const fetchHistory = async () => {
+        try {
+            setHistoryLoading(true);
+            const data = await getTransferHistory(accountAddress);
+            setTransferHistory(data);
+        } catch {
+            // 이체내역 로드 실패 시 무시
+        } finally {
+            setHistoryLoading(false);
+        }
+    };
+
     useEffect(() => {
         fetchDetail();
         fetchAllAccounts();
+        fetchHistory();
     }, [accountAddress]);
 
     const handleCharged = () => {
         setShowChargeModal(false);
         setChargeSuccess(true);
         fetchDetail();
+        fetchHistory();
         setTimeout(() => setChargeSuccess(false), 3000);
     };
 
@@ -580,6 +596,7 @@ const AccountDetail = () => {
         setShowDepositModal(false);
         setDepositSuccess(true);
         fetchDetail();
+        fetchHistory();
         setTimeout(() => setDepositSuccess(false), 3000);
     };
 
@@ -588,6 +605,7 @@ const AccountDetail = () => {
         setTransferSuccess(true);
         fetchDetail();
         fetchAllAccounts();
+        fetchHistory();
         setTimeout(() => setTransferSuccess(false), 3000);
     };
 
@@ -867,6 +885,158 @@ const AccountDetail = () => {
                     </Button>
                 </div>
             )}
+
+            {/* 이체 내역 */}
+            <div className="glass-panel" style={{ marginTop: '1.5rem' }}>
+                <h3 style={{
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    color: 'var(--text-main)',
+                    marginBottom: '1.25rem',
+                    textAlign: 'left',
+                }}>
+                    📋 이체 내역
+                </h3>
+
+                {historyLoading && (
+                    <div style={{ textAlign: 'center', padding: '2rem 0' }}>
+                        <div className="loading-spinner" />
+                        <p style={{ marginTop: '0.75rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>내역을 불러오는 중...</p>
+                    </div>
+                )}
+
+                {!historyLoading && transferHistory.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '2rem 0' }}>
+                        <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem', opacity: 0.4 }}>📭</div>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0 }}>이체 내역이 없습니다.</p>
+                    </div>
+                )}
+
+                {!historyLoading && transferHistory.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {transferHistory.map((record) => {
+                            const TYPE_CONFIG = {
+                                CHARGE: { icon: '💳', label: '충전', color: '#6366f1' },
+                                TRANSFER: { icon: '💸', label: '이체', color: '#22c55e' },
+                                SAVINGS_CHARGE: { icon: '🏦', label: '적금 입금', color: '#a855f7' },
+                                INTERESTS: { icon: '✨', label: '이자', color: '#f59e0b' },
+                            };
+                            const STATUS_CONFIG = {
+                                COMPLETED: { label: '완료', color: '#22c55e', bg: 'rgba(34,197,94,0.15)' },
+                                FAILED: { label: '실패', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' },
+                                PENDING: { label: '대기', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
+                            };
+
+                            const typeInfo = TYPE_CONFIG[record.type] || { icon: '📄', label: record.type, color: 'var(--text-muted)' };
+                            const statusInfo = STATUS_CONFIG[record.status] || { label: record.status, color: 'var(--text-muted)', bg: 'rgba(255,255,255,0.05)' };
+
+                            const isSender = record.senderAddress === accountAddress;
+                            const isReceiver = record.receiverAddress === accountAddress;
+
+                            // 표시 방향 결정
+                            let directionLabel = '';
+                            if (record.type === 'CHARGE') {
+                                directionLabel = '외부 충전';
+                            } else if (record.type === 'INTERESTS') {
+                                directionLabel = '이자 수령';
+                            } else if (isSender && isReceiver) {
+                                directionLabel = '자기 계좌';
+                            } else if (isSender) {
+                                directionLabel = `→ ${record.receiverAddress.slice(0, 8)}...`;
+                            } else if (isReceiver) {
+                                directionLabel = `← ${record.senderAddress.slice(0, 8)}...`;
+                            }
+
+                            const createdDate = record.createdAt
+                                ? new Date(record.createdAt).toLocaleString('ko-KR', {
+                                    month: '2-digit', day: '2-digit',
+                                    hour: '2-digit', minute: '2-digit',
+                                })
+                                : '';
+
+                            return (
+                                <div
+                                    key={record.id}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.75rem',
+                                        padding: '0.875rem 1rem',
+                                        background: 'rgba(255,255,255,0.03)',
+                                        border: '1px solid var(--border)',
+                                        borderRadius: '0.75rem',
+                                        transition: 'background 0.15s ease',
+                                    }}
+                                >
+                                    {/* 아이콘 */}
+                                    <div style={{
+                                        width: '40px',
+                                        height: '40px',
+                                        borderRadius: '0.625rem',
+                                        background: `${typeInfo.color}22`,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '1.1rem',
+                                        flexShrink: 0,
+                                    }}>
+                                        {typeInfo.icon}
+                                    </div>
+
+                                    {/* 정보 */}
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            marginBottom: '0.2rem',
+                                        }}>
+                                            <span style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--text-main)' }}>
+                                                {typeInfo.label}
+                                            </span>
+                                            <span style={{
+                                                fontSize: '0.65rem',
+                                                fontWeight: '600',
+                                                padding: '0.15rem 0.4rem',
+                                                borderRadius: '0.3rem',
+                                                background: statusInfo.bg,
+                                                color: statusInfo.color,
+                                            }}>
+                                                {statusInfo.label}
+                                            </span>
+                                        </div>
+                                        <div style={{
+                                            fontSize: '0.75rem',
+                                            color: 'var(--text-muted)',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap',
+                                        }}>
+                                            {directionLabel} · {createdDate}
+                                        </div>
+                                        {record.failureReason && (
+                                            <div style={{ fontSize: '0.7rem', color: '#ef4444', marginTop: '0.2rem' }}>
+                                                사유: {record.failureReason}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* 금액 */}
+                                    <div style={{
+                                        fontSize: '0.95rem',
+                                        fontWeight: '700',
+                                        color: isReceiver && !isSender ? '#4ade80' : 'var(--text-main)',
+                                        whiteSpace: 'nowrap',
+                                    }}>
+                                        {isReceiver && !isSender ? '+' : ''}
+                                        ₩{record.amount.toLocaleString()}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
