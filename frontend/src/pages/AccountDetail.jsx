@@ -328,6 +328,7 @@ const SavingDepositModal = ({ savingAccountAddress, onClose, onDeposited }) => {
 
 // ── 이체 모달 ─────────────────────────────────────────────────────
 const TransferModal = ({ senderAccountAddress, accounts, onClose, onTransferred }) => {
+    const [inputMode, setInputMode] = useState('my'); // 'my' | 'direct'
     const [receiverAddress, setReceiverAddress] = useState('');
     const [amount, setAmount] = useState('');
     const [loading, setLoading] = useState(false);
@@ -340,9 +341,15 @@ const TransferModal = ({ senderAccountAddress, accounts, onClose, onTransferred 
         (acc) => acc.accountAddress !== senderAccountAddress
     );
 
+    const handleModeChange = (mode) => {
+        setInputMode(mode);
+        setReceiverAddress('');
+        setError(null);
+    };
+
     const handleTransfer = async () => {
-        if (!receiverAddress) {
-            setError('받는 계좌를 선택해주세요.');
+        if (!receiverAddress.trim()) {
+            setError(inputMode === 'my' ? '받는 계좌를 선택해주세요.' : '받는 계좌 주소를 입력해주세요.');
             return;
         }
         const parsed = parseInt(amount.replace(/,/g, ''), 10);
@@ -353,7 +360,7 @@ const TransferModal = ({ senderAccountAddress, accounts, onClose, onTransferred 
         setLoading(true);
         setError(null);
         try {
-            await transferBetweenAccounts(senderAccountAddress, receiverAddress, parsed);
+            await transferBetweenAccounts(senderAccountAddress, receiverAddress.trim(), parsed);
             onTransferred();
         } catch (err) {
             setError(err.response?.data?.message || '이체에 실패했습니다.');
@@ -365,6 +372,19 @@ const TransferModal = ({ senderAccountAddress, accounts, onClose, onTransferred 
         const raw = e.target.value.replace(/[^0-9]/g, '');
         setAmount(raw ? parseInt(raw, 10).toLocaleString() : '');
     };
+
+    const tabStyle = (active) => ({
+        flex: 1,
+        padding: '0.55rem',
+        background: active ? 'rgba(34,197,94,0.2)' : 'transparent',
+        border: `1px solid ${active ? '#22c55e' : 'var(--border)'}`,
+        borderRadius: '0.5rem',
+        color: active ? '#22c55e' : 'var(--text-muted)',
+        fontSize: '0.8rem',
+        fontWeight: '600',
+        cursor: 'pointer',
+        transition: 'all 0.15s ease',
+    });
 
     return (
         <div
@@ -397,17 +417,61 @@ const TransferModal = ({ senderAccountAddress, accounts, onClose, onTransferred 
                     💸 계좌 이체
                 </h3>
 
-                {/* 받는 계좌 선택 */}
+                {/* 받는 계좌 입력 모드 탭 */}
                 <div style={{ marginBottom: '1rem' }}>
                     <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-muted)' }}>
                         받는 계좌
                     </label>
-                    {targetAccounts.length === 0 ? (
-                        <div className="error-alert">이체 가능한 계좌가 없습니다.</div>
-                    ) : (
-                        <select
+                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                        <button onClick={() => handleModeChange('my')} style={tabStyle(inputMode === 'my')}>
+                            내 계좌
+                        </button>
+                        <button onClick={() => handleModeChange('direct')} style={tabStyle(inputMode === 'direct')}>
+                            직접 입력
+                        </button>
+                    </div>
+
+                    {inputMode === 'my' && (
+                        targetAccounts.length === 0 ? (
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', padding: '0.5rem 0' }}>
+                                다른 내 계좌가 없습니다. 직접 입력을 이용해주세요.
+                            </div>
+                        ) : (
+                            <select
+                                value={receiverAddress}
+                                onChange={(e) => setReceiverAddress(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.75rem 1rem',
+                                    background: 'rgba(255,255,255,0.06)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '0.75rem',
+                                    color: 'var(--text-main)',
+                                    fontSize: '0.875rem',
+                                    cursor: 'pointer',
+                                    boxSizing: 'border-box',
+                                }}
+                            >
+                                <option value="">계좌를 선택하세요</option>
+                                {targetAccounts.map((acc) => {
+                                    const icon = ACCOUNT_TYPE_ICON[acc.accountType] || '💳';
+                                    const label = ACCOUNT_TYPE_LABEL[acc.accountType] || acc.accountType;
+                                    return (
+                                        <option key={acc.accountAddress} value={acc.accountAddress}>
+                                            {icon} {label} — ₩{acc.balance.toLocaleString()} ({acc.accountAddress.slice(0, 8)}...)
+                                        </option>
+                                    );
+                                })}
+                            </select>
+                        )
+                    )}
+
+                    {inputMode === 'direct' && (
+                        <input
+                            type="text"
                             value={receiverAddress}
                             onChange={(e) => setReceiverAddress(e.target.value)}
+                            placeholder="받는 계좌 주소 (UUID)"
                             style={{
                                 width: '100%',
                                 padding: '0.75rem 1rem',
@@ -415,22 +479,14 @@ const TransferModal = ({ senderAccountAddress, accounts, onClose, onTransferred 
                                 border: '1px solid var(--border)',
                                 borderRadius: '0.75rem',
                                 color: 'var(--text-main)',
-                                fontSize: '0.875rem',
-                                cursor: 'pointer',
+                                fontSize: '0.85rem',
+                                fontFamily: 'monospace',
                                 boxSizing: 'border-box',
+                                outline: 'none',
                             }}
-                        >
-                            <option value="">계좌를 선택하세요</option>
-                            {targetAccounts.map((acc) => {
-                                const icon = ACCOUNT_TYPE_ICON[acc.accountType] || '💳';
-                                const label = ACCOUNT_TYPE_LABEL[acc.accountType] || acc.accountType;
-                                return (
-                                    <option key={acc.accountAddress} value={acc.accountAddress}>
-                                        {icon} {label} — ₩{acc.balance.toLocaleString()} ({acc.accountAddress.slice(0, 8)}...)
-                                    </option>
-                                );
-                            })}
-                        </select>
+                            onFocus={(e) => e.target.style.borderColor = '#22c55e'}
+                            onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
+                        />
                     )}
                 </div>
 
