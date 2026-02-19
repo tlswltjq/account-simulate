@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import client from '../api/client';
+import { joinMember } from '../api/memberApi';
 import Input from '../components/Input';
 import Button from '../components/Button';
 
@@ -35,7 +35,7 @@ const Signup = () => {
         setError('');
 
         try {
-            await client.post('/member', { username, password });
+            await joinMember(username, password);
 
             // 회원가입 성공 시 자동 로그인 처리
             login(username);

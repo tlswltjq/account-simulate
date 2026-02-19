@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import client from '../api/client';
+import { loginMember } from '../api/memberApi';
 import Input from '../components/Input';
 import Button from '../components/Button';
 
@@ -24,9 +24,9 @@ const Login = () => {
         setError('');
 
         try {
-            const response = await client.post('/member/login', { username, password });
+            const result = await loginMember(username, password);
 
-            if (response.data === true) {
+            if (result === true) {
                 login(username);
                 navigate('/dashboard');
             } else {

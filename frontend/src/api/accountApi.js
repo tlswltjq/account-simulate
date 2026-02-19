@@ -41,13 +41,3 @@ export const createSavingAccount = async (linkedAccountAddress, username) => {
     });
     return response.data;
 };
-
-/**
- * 일반 계좌 충전
- * @param {string} accountAddress
- * @param {number} amount
- */
-export const chargeGeneralAccount = async (accountAddress, amount) => {
-    const response = await client.post(`/account/general/${accountAddress}/charge`, { amount });
-    return response.data;
-};
