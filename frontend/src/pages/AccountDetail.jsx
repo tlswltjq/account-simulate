@@ -970,38 +970,19 @@ const AccountDetail = () => {
 
                 {!historyLoading && transferHistory.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        {transferHistory.map((record) => {
-                            const TYPE_CONFIG = {
-                                CHARGE: { icon: '💳', label: '충전', color: '#6366f1' },
-                                TRANSFER: { icon: '💸', label: '이체', color: '#22c55e' },
-                                SAVINGS_CHARGE: { icon: '🏦', label: '적금 입금', color: '#a855f7' },
-                                INTERESTS: { icon: '✨', label: '이자', color: '#f59e0b' },
-                            };
-                            const STATUS_CONFIG = {
-                                COMPLETED: { label: '완료', color: '#22c55e', bg: 'rgba(34,197,94,0.15)' },
-                                FAILED: { label: '실패', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' },
-                                PENDING: { label: '대기', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
-                            };
+                        {transferHistory.map((record, index) => {
+                            const isDeposit = record.direction === 'DEPOSIT';
+                            const isWithdrawal = record.direction === 'WITHDRAWAL';
 
-                            const typeInfo = TYPE_CONFIG[record.type] || { icon: '📄', label: record.type, color: 'var(--text-muted)' };
-                            const statusInfo = STATUS_CONFIG[record.status] || { label: record.status, color: 'var(--text-muted)', bg: 'rgba(255,255,255,0.05)' };
+                            // 송/수신 테마 설정
+                            const typeInfo = isDeposit
+                                ? { icon: '↓', label: '입금', color: '#22c55e', bg: 'rgba(34,197,94,0.15)' }
+                                : { icon: '↑', label: '출금', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' };
 
-                            const isSender = record.senderAddress === accountAddress;
-                            const isReceiver = record.receiverAddress === accountAddress;
-
-                            // 표시 방향 결정
-                            let directionLabel = '';
-                            if (record.type === 'CHARGE') {
-                                directionLabel = '외부 충전';
-                            } else if (record.type === 'INTERESTS') {
-                                directionLabel = '이자 수령';
-                            } else if (isSender && isReceiver) {
-                                directionLabel = '자기 계좌';
-                            } else if (isSender) {
-                                directionLabel = `→ ${record.receiverAddress.slice(0, 8)}...`;
-                            } else if (isReceiver) {
-                                directionLabel = `← ${record.senderAddress.slice(0, 8)}...`;
-                            }
+                            // 카운터파티(상대방) 정보 표시
+                            const directionLabel = isDeposit
+                                ? `← ${record.counterpartyAddress.slice(0, 8)}...`
+                                : `→ ${record.counterpartyAddress.slice(0, 8)}...`;
 
                             const createdDate = record.createdAt
                                 ? new Date(record.createdAt).toLocaleString('ko-KR', {
@@ -1010,9 +991,12 @@ const AccountDetail = () => {
                                 })
                                 : '';
 
+                            // 고유 ID가 없어 생성시간 + 인덱스 조합
+                            const listKey = `${record.createdAt}-${index}`;
+
                             return (
                                 <div
-                                    key={record.id}
+                                    key={listKey}
                                     style={{
                                         display: 'flex',
                                         alignItems: 'center',
@@ -1024,17 +1008,19 @@ const AccountDetail = () => {
                                         transition: 'background 0.15s ease',
                                     }}
                                 >
-                                    {/* 아이콘 */}
+                                    {/* 방향 아이콘 */}
                                     <div style={{
                                         width: '40px',
                                         height: '40px',
                                         borderRadius: '0.625rem',
-                                        background: `${typeInfo.color}22`,
+                                        background: typeInfo.bg,
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        fontSize: '1.1rem',
+                                        fontSize: '1.2rem',
+                                        color: typeInfo.color,
                                         flexShrink: 0,
+                                        fontWeight: '700'
                                     }}>
                                         {typeInfo.icon}
                                     </div>
@@ -1050,16 +1036,6 @@ const AccountDetail = () => {
                                             <span style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--text-main)' }}>
                                                 {typeInfo.label}
                                             </span>
-                                            <span style={{
-                                                fontSize: '0.65rem',
-                                                fontWeight: '600',
-                                                padding: '0.15rem 0.4rem',
-                                                borderRadius: '0.3rem',
-                                                background: statusInfo.bg,
-                                                color: statusInfo.color,
-                                            }}>
-                                                {statusInfo.label}
-                                            </span>
                                         </div>
                                         <div style={{
                                             fontSize: '0.75rem',
@@ -1070,21 +1046,16 @@ const AccountDetail = () => {
                                         }}>
                                             {directionLabel} · {createdDate}
                                         </div>
-                                        {record.failureReason && (
-                                            <div style={{ fontSize: '0.7rem', color: '#ef4444', marginTop: '0.2rem' }}>
-                                                사유: {record.failureReason}
-                                            </div>
-                                        )}
                                     </div>
 
                                     {/* 금액 */}
                                     <div style={{
                                         fontSize: '0.95rem',
                                         fontWeight: '700',
-                                        color: isReceiver && !isSender ? '#4ade80' : 'var(--text-main)',
+                                        color: isDeposit ? '#4ade80' : 'var(--text-main)',
                                         whiteSpace: 'nowrap',
                                     }}>
-                                        {isReceiver && !isSender ? '+' : ''}
+                                        {isDeposit ? '+' : '-'}
                                         ₩{record.amount.toLocaleString()}
                                     </div>
                                 </div>
