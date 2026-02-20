@@ -971,8 +971,8 @@ const AccountDetail = () => {
                 {!historyLoading && transferHistory.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                         {transferHistory.map((record, index) => {
-                            const isDeposit = record.direction === 'DEPOSIT';
-                            const isWithdrawal = record.direction === 'WITHDRAWAL';
+                            const isDeposit = record.direction === 'CREDIT';
+                            const isWithdrawal = record.direction === 'DEBIT';
 
                             // 송/수신 테마 설정
                             const typeInfo = isDeposit
