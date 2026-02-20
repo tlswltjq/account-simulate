@@ -34,7 +34,7 @@ export const transferBetweenAccounts = async (senderAccountAddress, receiverAcco
  */
 export const getTransferHistory = async (accountAddress) => {
     const response = await client.get('/transfer/history', {
-        data: { accountAddress }
+        params: { accountAddress }
     });
     return response.data;
 };
