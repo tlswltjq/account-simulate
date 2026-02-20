@@ -1,14 +1,6 @@
 import client from './client';
 
-/**
- * 일반 계좌 충전
- * @param {string} accountAddress
- * @param {number} amount
- */
-export const chargeAccount = async (accountAddress, amount) => {
-    const response = await client.post('/transfer/charge', { accountAddress, amount });
-    return response.data;
-};
+
 
 /**
  * 적금 계좌 입금
@@ -27,7 +19,7 @@ export const depositToSaving = async (savingAccountAddress, amount) => {
  * @param {number} amount
  */
 export const transferBetweenAccounts = async (senderAccountAddress, receiverAccountAddress, amount) => {
-    const response = await client.post('/transfer/between-accounts', {
+    const response = await client.post('/transfer/to-accounts', {
         senderAccountAddress,
         receiverAccountAddress,
         amount,
@@ -41,6 +33,8 @@ export const transferBetweenAccounts = async (senderAccountAddress, receiverAcco
  * @returns {Promise<Array<{id, senderAddress, receiverAddress, amount, type, status, createdAt, completedAt, failureReason}>>}
  */
 export const getTransferHistory = async (accountAddress) => {
-    const response = await client.get(`/transfer/history/${accountAddress}`);
+    const response = await client.get('/transfer/history', {
+        data: { accountAddress }
+    });
     return response.data;
 };

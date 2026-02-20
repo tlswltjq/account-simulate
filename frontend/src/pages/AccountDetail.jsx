@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getAccountDetail, getAccounts } from '../api/accountApi';
-import { chargeAccount, depositToSaving, transferBetweenAccounts, getTransferHistory } from '../api/transferApi';
+import { getAccountDetail, getAccounts, chargeAccount } from '../api/accountApi';
+import { depositToSaving, transferBetweenAccounts, getTransferHistory } from '../api/transferApi';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
 
