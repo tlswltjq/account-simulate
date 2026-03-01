@@ -51,3 +51,13 @@ export const chargeAccount = async (accountAddress, amount) => {
     const response = await client.post(`/account/${accountAddress}/charge`, { amount });
     return response.data;
 };
+
+/**
+ * 적금 입금 (적금 실행)
+ * @param {string} accountAddress - 적금 계좌 주소
+ * @param {number} amount
+ */
+export const executeSaving = async (accountAddress, amount) => {
+    const response = await client.post(`/account/${accountAddress}/saving`, { amount });
+    return response.data;
+};

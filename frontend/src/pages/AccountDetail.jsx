@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getAccountDetail, getAccounts, chargeAccount } from '../api/accountApi';
-import { depositToSaving, transferBetweenAccounts, getTransferHistory } from '../api/transferApi';
+import { getAccountDetail, getAccounts, chargeAccount, executeSaving } from '../api/accountApi';
+import { transferBetweenAccounts, getTransferHistory } from '../api/transferApi';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
 
@@ -188,7 +188,7 @@ const SavingDepositModal = ({ savingAccountAddress, onClose, onDeposited }) => {
         setLoading(true);
         setError(null);
         try {
-            await depositToSaving(savingAccountAddress, parsed);
+            await executeSaving(savingAccountAddress, parsed);
             onDeposited();
         } catch (err) {
             setError(err.response?.data?.message || '입금에 실패했습니다.');
