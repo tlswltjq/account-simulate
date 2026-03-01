@@ -2,13 +2,13 @@ import client from './client';
 
 /**
  * 친구 요청 보내기
- * @param {number} requesterId
- * @param {number} receiverId
+ * @param {string} requesterUsername - 요청자 username
+ * @param {string} receiverUsername - 상대방 username
  */
-export const sendFriendRequest = async (requesterId, receiverId) => {
+export const sendFriendRequest = async (requesterUsername, receiverUsername) => {
     const response = await client.post('/friendship/request', {
-        requesterId,
-        receiverId,
+        requesterUsername,
+        receiverUsername,
     });
     return response.data;
 };
@@ -16,31 +16,31 @@ export const sendFriendRequest = async (requesterId, receiverId) => {
 /**
  * 친구 요청 수락
  * @param {number} id - 친구 요청 ID
- * @param {number} receiverId - 수락하는 사용자 ID
+ * @param {string} receiverUsername - 수락하는 사용자 username
  */
-export const acceptFriendRequest = async (id, receiverId) => {
+export const acceptFriendRequest = async (id, receiverUsername) => {
     const response = await client.post(`/friendship/${id}/accept`, null, {
-        params: { receiverId },
+        params: { receiverUsername },
     });
     return response.data;
 };
 
 /**
  * 친구 목록 조회
- * @param {number} memberId
- * @returns {Promise<Array<number>>} 친구 ID 목록
+ * @param {string} username
+ * @returns {Promise<Array<string>>} 친구 username 목록
  */
-export const getFriends = async (memberId) => {
-    const response = await client.get(`/friendship/friends/${memberId}`);
+export const getFriends = async (username) => {
+    const response = await client.get(`/friendship/friends/${username}`);
     return response.data;
 };
 
 /**
  * 대기 중인 친구 요청 조회
- * @param {number} memberId
- * @returns {Promise<Array<{id, requesterId, receiverId, status}>>}
+ * @param {string} username
+ * @returns {Promise<Array<{id, requesterUsername, receiverUsername, status}>>}
  */
-export const getPendingRequests = async (memberId) => {
-    const response = await client.get(`/friendship/pending/${memberId}`);
+export const getPendingRequests = async (username) => {
+    const response = await client.get(`/friendship/pending/${username}`);
     return response.data;
 };

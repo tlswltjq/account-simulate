@@ -281,15 +281,44 @@ const Dashboard = () => {
                     </div>
                     <span style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--text-main)' }}>Mini Pay</span>
                 </div>
-                <Button onClick={handleLogout} style={{
-                    maxWidth: '120px',
-                    padding: '0.5rem 1rem',
-                    fontSize: '0.875rem',
-                    background: 'rgba(239, 68, 68, 0.15)',
-                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                }}>
-                    로그아웃
-                </Button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <button
+                        onClick={() => navigate('/friends')}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            padding: '0.5rem 1rem',
+                            background: 'rgba(99, 102, 241, 0.1)',
+                            border: '1px solid rgba(99, 102, 241, 0.2)',
+                            borderRadius: '0.625rem',
+                            color: 'var(--primary)',
+                            fontSize: '0.8rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(99, 102, 241, 0.2)';
+                            e.currentTarget.style.transform = 'translateY(-1px)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)';
+                            e.currentTarget.style.transform = 'translateY(0)';
+                        }}
+                    >
+                        👥 네트워크
+                    </button>
+                    <Button onClick={handleLogout} style={{
+                        maxWidth: '120px',
+                        padding: '0.5rem 1rem',
+                        fontSize: '0.875rem',
+                        background: 'rgba(239, 68, 68, 0.15)',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                    }}>
+                        로그아웃
+                    </Button>
+                </div>
             </div>
 
             {/* 프로필 카드 */}

@@ -1,0 +1,647 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { getFriends, getPendingRequests, sendFriendRequest, acceptFriendRequest } from '../api/friendshipApi';
+import Button from '../components/Button';
+
+// ── 아바타 컴포넌트 ───────────────────────────────────────────────
+const Avatar = ({ name, size = 48, gradient }) => {
+    const gradients = [
+        'linear-gradient(135deg, #6366f1, #818cf8)',
+        'linear-gradient(135deg, #a855f7, #c084fc)',
+        'linear-gradient(135deg, #ec4899, #f472b6)',
+        'linear-gradient(135deg, #14b8a6, #5eead4)',
+        'linear-gradient(135deg, #f59e0b, #fbbf24)',
+        'linear-gradient(135deg, #22c55e, #4ade80)',
+        'linear-gradient(135deg, #3b82f6, #60a5fa)',
+        'linear-gradient(135deg, #ef4444, #f87171)',
+    ];
+
+    const index = name ? name.charCodeAt(0) % gradients.length : 0;
+    const bg = gradient || gradients[index];
+    const initial = name ? name.charAt(0).toUpperCase() : '?';
+
+    return (
+        <div style={{
+            width: `${size}px`,
+            height: `${size}px`,
+            borderRadius: '50%',
+            background: bg,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: `${size * 0.4}px`,
+            fontWeight: '700',
+            color: 'white',
+            flexShrink: 0,
+            boxShadow: '0 4px 12px -2px rgba(0,0,0,0.3)',
+        }}>
+            {initial}
+        </div>
+    );
+};
+
+// ── 탭 버튼 ───────────────────────────────────────────────────────
+const TabButton = ({ active, icon, label, count, onClick }) => (
+    <button
+        onClick={onClick}
+        style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '0.35rem',
+            padding: '0.875rem 0.5rem',
+            background: active ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+            border: 'none',
+            borderBottom: active ? '2px solid var(--primary)' : '2px solid transparent',
+            color: active ? 'var(--primary)' : 'var(--text-muted)',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            fontSize: '0.8rem',
+            fontWeight: active ? '700' : '500',
+            position: 'relative',
+        }}
+    >
+        <span style={{ fontSize: '1.1rem' }}>{icon}</span>
+        <span>{label}</span>
+        {count > 0 && (
+            <span style={{
+                position: 'absolute',
+                top: '0.5rem',
+                right: 'calc(50% - 1.5rem)',
+                minWidth: '18px',
+                height: '18px',
+                padding: '0 5px',
+                background: 'linear-gradient(135deg, #ef4444, #f87171)',
+                borderRadius: '9px',
+                fontSize: '0.65rem',
+                fontWeight: '700',
+                color: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 2px 6px rgba(239, 68, 68, 0.4)',
+            }}>
+                {count}
+            </span>
+        )}
+    </button>
+);
+
+// ── 친구 카드 ─────────────────────────────────────────────────────
+const FriendCard = ({ username }) => (
+    <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '1rem',
+        padding: '1rem 1.25rem',
+        background: 'rgba(15, 23, 42, 0.4)',
+        border: '1px solid var(--border)',
+        borderRadius: '0.875rem',
+        transition: 'all 0.2s ease',
+        cursor: 'default',
+    }}
+        onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.3)';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 8px 25px -5px rgba(0, 0, 0, 0.3)';
+        }}
+        onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = 'var(--border)';
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = 'none';
+        }}
+    >
+        <Avatar name={username} size={44} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+                fontSize: '0.95rem',
+                fontWeight: '600',
+                color: 'var(--text-main)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+            }}>
+                {username}
+            </div>
+            <div style={{
+                fontSize: '0.75rem',
+                color: 'var(--text-muted)',
+                marginTop: '0.15rem',
+            }}>
+                Mini Pay 회원
+            </div>
+        </div>
+        <div style={{
+            padding: '0.3rem 0.75rem',
+            background: 'rgba(34, 197, 94, 0.12)',
+            border: '1px solid rgba(34, 197, 94, 0.25)',
+            borderRadius: '1rem',
+            fontSize: '0.7rem',
+            fontWeight: '600',
+            color: '#4ade80',
+        }}>
+            친구
+        </div>
+    </div>
+);
+
+// ── 대기 중 요청 카드 ─────────────────────────────────────────────
+const PendingCard = ({ request, currentUsername, onAccept, loading }) => {
+    const isReceived = request.receiverUsername === currentUsername;
+    const otherUser = isReceived ? request.requesterUsername : request.receiverUsername;
+
+    return (
+        <div style={{
+            padding: '1.25rem',
+            background: 'rgba(15, 23, 42, 0.4)',
+            border: '1px solid var(--border)',
+            borderRadius: '0.875rem',
+            transition: 'all 0.2s ease',
+        }}
+            onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(168, 85, 247, 0.3)';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 8px 25px -5px rgba(0, 0, 0, 0.3)';
+            }}
+            onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border)';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
+            }}
+        >
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '1rem',
+                marginBottom: isReceived ? '1rem' : 0,
+            }}>
+                <Avatar name={otherUser} size={48} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                        fontSize: '0.95rem',
+                        fontWeight: '600',
+                        color: 'var(--text-main)',
+                    }}>
+                        {otherUser}
+                    </div>
+                    <div style={{
+                        fontSize: '0.75rem',
+                        color: 'var(--text-muted)',
+                        marginTop: '0.2rem',
+                    }}>
+                        {isReceived
+                            ? '친구 요청을 보냈습니다'
+                            : '수락 대기 중'}
+                    </div>
+                </div>
+                {!isReceived && (
+                    <div style={{
+                        padding: '0.3rem 0.75rem',
+                        background: 'rgba(245, 158, 11, 0.12)',
+                        border: '1px solid rgba(245, 158, 11, 0.25)',
+                        borderRadius: '1rem',
+                        fontSize: '0.7rem',
+                        fontWeight: '600',
+                        color: '#fbbf24',
+                    }}>
+                        대기 중
+                    </div>
+                )}
+            </div>
+
+            {isReceived && (
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                        onClick={() => onAccept(request.id)}
+                        disabled={loading}
+                        style={{
+                            flex: 1,
+                            padding: '0.6rem',
+                            background: 'linear-gradient(135deg, var(--primary), #a855f7)',
+                            border: 'none',
+                            borderRadius: '0.625rem',
+                            color: 'white',
+                            fontSize: '0.8rem',
+                            fontWeight: '600',
+                            cursor: loading ? 'not-allowed' : 'pointer',
+                            opacity: loading ? 0.7 : 1,
+                            transition: 'all 0.15s ease',
+                            boxShadow: '0 4px 12px -2px rgba(99, 102, 241, 0.4)',
+                        }}
+                        onMouseEnter={(e) => { if (!loading) e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
+                    >
+                        {loading ? '처리 중...' : '수락'}
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ── 빈 상태 ───────────────────────────────────────────────────────
+const EmptyState = ({ icon, title, subtitle }) => (
+    <div style={{
+        textAlign: 'center',
+        padding: '3rem 2rem',
+    }}>
+        <div style={{ fontSize: '3.5rem', marginBottom: '1rem', opacity: 0.5 }}>{icon}</div>
+        <div style={{
+            fontSize: '1rem',
+            fontWeight: '600',
+            color: 'var(--text-main)',
+            marginBottom: '0.5rem',
+        }}>
+            {title}
+        </div>
+        <div style={{
+            fontSize: '0.85rem',
+            color: 'var(--text-muted)',
+            lineHeight: '1.5',
+        }}>
+            {subtitle}
+        </div>
+    </div>
+);
+
+// ── 메인 Friends 페이지 ──────────────────────────────────────────
+const Friends = () => {
+    const { username } = useAuth();
+    const navigate = useNavigate();
+    const [activeTab, setActiveTab] = useState('friends');
+    const [friends, setFriends] = useState([]);
+    const [pending, setPending] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    // 친구 추가 폼 상태
+    const [targetUsername, setTargetUsername] = useState('');
+    const [sendLoading, setSendLoading] = useState(false);
+    const [sendSuccess, setSendSuccess] = useState(false);
+    const [sendError, setSendError] = useState(null);
+
+    // 수락 로딩 상태
+    const [acceptingId, setAcceptingId] = useState(null);
+
+    const fetchData = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const [friendsData, pendingData] = await Promise.all([
+                getFriends(username),
+                getPendingRequests(username),
+            ]);
+            setFriends(friendsData);
+            setPending(pendingData);
+        } catch (err) {
+            setError(err.response?.data?.message || '데이터를 불러올 수 없습니다.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (username) fetchData();
+    }, [username]);
+
+    const handleSendRequest = async () => {
+        if (!targetUsername.trim()) {
+            setSendError('username을 입력해주세요.');
+            return;
+        }
+        if (targetUsername.trim() === username) {
+            setSendError('자기 자신에게는 요청할 수 없습니다.');
+            return;
+        }
+        setSendLoading(true);
+        setSendError(null);
+        try {
+            await sendFriendRequest(username, targetUsername.trim());
+            setSendSuccess(true);
+            setTargetUsername('');
+            fetchData();
+            setTimeout(() => setSendSuccess(false), 3000);
+        } catch (err) {
+            setSendError(err.response?.data?.message || '친구 요청에 실패했습니다.');
+        } finally {
+            setSendLoading(false);
+        }
+    };
+
+    const handleAccept = async (requestId) => {
+        setAcceptingId(requestId);
+        try {
+            await acceptFriendRequest(requestId, username);
+            fetchData();
+        } catch (err) {
+            setError(err.response?.data?.message || '수락에 실패했습니다.');
+        } finally {
+            setAcceptingId(null);
+        }
+    };
+
+    const receivedRequests = pending.filter(p => p.receiverUsername === username);
+
+    return (
+        <div className="animate-fade-in" style={{ maxWidth: '680px', margin: '0 auto', width: '100%' }}>
+
+            {/* ── 헤더 ─────────────────────────────────────────── */}
+            <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '1.5rem',
+                padding: '0 0.5rem',
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <button
+                        onClick={() => navigate('/dashboard')}
+                        style={{
+                            background: 'rgba(255,255,255,0.08)',
+                            border: '1px solid rgba(255,255,255,0.12)',
+                            borderRadius: '0.5rem',
+                            color: 'var(--text-main)',
+                            padding: '0.5rem 0.75rem',
+                            cursor: 'pointer',
+                            fontSize: '1rem',
+                            transition: 'all 0.2s ease',
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                    >
+                        ← 뒤로
+                    </button>
+                    <span style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--text-main)' }}>
+                        네트워크
+                    </span>
+                </div>
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.4rem 0.9rem',
+                    background: 'rgba(99, 102, 241, 0.1)',
+                    border: '1px solid rgba(99, 102, 241, 0.2)',
+                    borderRadius: '1rem',
+                    fontSize: '0.8rem',
+                    color: 'var(--primary)',
+                    fontWeight: '600',
+                }}>
+                    👥 {friends.length}명의 친구
+                </div>
+            </div>
+
+            {/* ── 프로필 배너 ────────────────────────────────────── */}
+            <div className="glass-panel" style={{
+                marginBottom: '1rem',
+                position: 'relative',
+                overflow: 'hidden',
+                padding: 0,
+            }}>
+                {/* 배경 그라디언트 배너 */}
+                <div style={{
+                    height: '80px',
+                    background: 'linear-gradient(135deg, #6366f1, #a855f7, #ec4899)',
+                    borderRadius: '1rem 1rem 0 0',
+                }} />
+                <div style={{
+                    padding: '0 1.5rem 1.5rem',
+                    marginTop: '-30px',
+                    display: 'flex',
+                    alignItems: 'flex-end',
+                    gap: '1rem',
+                }}>
+                    <Avatar name={username} size={60} gradient="linear-gradient(135deg, var(--primary), var(--primary-hover))" />
+                    <div style={{ paddingBottom: '0.25rem' }}>
+                        <div style={{
+                            fontSize: '1.1rem',
+                            fontWeight: '700',
+                            color: 'var(--text-main)',
+                        }}>
+                            {username}
+                        </div>
+                        <div style={{
+                            fontSize: '0.8rem',
+                            color: 'var(--text-muted)',
+                        }}>
+                            Mini Pay 회원 · 친구 {friends.length}명
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── 탭 네비게이션 ──────────────────────────────────── */}
+            <div className="glass-panel" style={{
+                padding: 0,
+                marginBottom: '1rem',
+                overflow: 'hidden',
+            }}>
+                <div style={{
+                    display: 'flex',
+                    borderBottom: '1px solid var(--border)',
+                }}>
+                    <TabButton
+                        active={activeTab === 'friends'}
+                        icon="👥"
+                        label="내 친구"
+                        count={0}
+                        onClick={() => setActiveTab('friends')}
+                    />
+                    <TabButton
+                        active={activeTab === 'pending'}
+                        icon="🔔"
+                        label="받은 요청"
+                        count={receivedRequests.length}
+                        onClick={() => setActiveTab('pending')}
+                    />
+                    <TabButton
+                        active={activeTab === 'add'}
+                        icon="➕"
+                        label="친구 추가"
+                        count={0}
+                        onClick={() => setActiveTab('add')}
+                    />
+                </div>
+
+                {/* ── 탭 콘텐츠 ──────────────────────────────────── */}
+                <div style={{ padding: '1.25rem' }}>
+
+                    {/* 로딩 */}
+                    {loading && (activeTab === 'friends' || activeTab === 'pending') && (
+                        <div style={{ textAlign: 'center', padding: '2rem' }}>
+                            <div className="loading-spinner" />
+                            <p style={{ marginTop: '1rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                                불러오는 중...
+                            </p>
+                        </div>
+                    )}
+
+                    {/* 에러 */}
+                    {!loading && error && (
+                        <div className="error-alert" style={{ justifyContent: 'center' }}>
+                            ⚠️&nbsp; {error}
+                        </div>
+                    )}
+
+                    {/* ── 내 친구 탭 ──────────────────────────────── */}
+                    {activeTab === 'friends' && !loading && !error && (
+                        <>
+                            {friends.length === 0 ? (
+                                <EmptyState
+                                    icon="🤝"
+                                    title="아직 친구가 없습니다"
+                                    subtitle="'친구 추가' 탭에서 상대의 username을 입력하여 친구 요청을 보내보세요!"
+                                />
+                            ) : (
+                                <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '0.625rem',
+                                }}>
+                                    {friends.map((friendUsername) => (
+                                        <FriendCard key={friendUsername} username={friendUsername} />
+                                    ))}
+                                </div>
+                            )}
+                        </>
+                    )}
+
+                    {/* ── 받은 요청 탭 ────────────────────────────── */}
+                    {activeTab === 'pending' && !loading && !error && (
+                        <>
+                            {pending.length === 0 ? (
+                                <EmptyState
+                                    icon="📭"
+                                    title="대기 중인 요청이 없습니다"
+                                    subtitle="새로운 친구 요청이 오면 여기에 표시됩니다."
+                                />
+                            ) : (
+                                <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '0.625rem',
+                                }}>
+                                    {pending.map((req) => (
+                                        <PendingCard
+                                            key={req.id}
+                                            request={req}
+                                            currentUsername={username}
+                                            onAccept={handleAccept}
+                                            loading={acceptingId === req.id}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </>
+                    )}
+
+                    {/* ── 친구 추가 탭 ────────────────────────────── */}
+                    {activeTab === 'add' && (
+                        <div style={{ maxWidth: '400px', margin: '0 auto' }}>
+                            <div style={{
+                                textAlign: 'center',
+                                marginBottom: '1.5rem',
+                            }}>
+                                <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🔍</div>
+                                <div style={{
+                                    fontSize: '1rem',
+                                    fontWeight: '600',
+                                    color: 'var(--text-main)',
+                                    marginBottom: '0.35rem',
+                                }}>
+                                    친구를 추가하세요
+                                </div>
+                                <div style={{
+                                    fontSize: '0.8rem',
+                                    color: 'var(--text-muted)',
+                                }}>
+                                    상대방의 username을 입력하면 친구 요청을 보낼 수 있습니다.
+                                </div>
+                            </div>
+
+                            {/* 성공 알림 */}
+                            {sendSuccess && (
+                                <div style={{
+                                    marginBottom: '1rem',
+                                    padding: '0.75rem 1rem',
+                                    background: 'rgba(34, 197, 94, 0.15)',
+                                    border: '1px solid rgba(34, 197, 94, 0.3)',
+                                    borderRadius: '0.75rem',
+                                    color: '#4ade80',
+                                    fontSize: '0.85rem',
+                                    fontWeight: '500',
+                                    textAlign: 'center',
+                                }}>
+                                    ✅ 친구 요청을 보냈습니다!
+                                </div>
+                            )}
+
+                            {/* 입력 필드 */}
+                            <div style={{
+                                display: 'flex',
+                                gap: '0.5rem',
+                                marginBottom: '0.75rem',
+                            }}>
+                                <div style={{ flex: 1, position: 'relative' }}>
+                                    <span style={{
+                                        position: 'absolute',
+                                        left: '0.75rem',
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        fontSize: '1rem',
+                                        pointerEvents: 'none',
+                                    }}>@</span>
+                                    <input
+                                        type="text"
+                                        value={targetUsername}
+                                        onChange={(e) => { setTargetUsername(e.target.value); setSendError(null); }}
+                                        placeholder="username 입력"
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.75rem 1rem 0.75rem 2rem',
+                                            background: 'rgba(255, 255, 255, 0.06)',
+                                            border: '1px solid var(--border)',
+                                            borderRadius: '0.75rem',
+                                            color: 'var(--text-main)',
+                                            fontSize: '0.9rem',
+                                            boxSizing: 'border-box',
+                                            outline: 'none',
+                                            transition: 'border-color 0.2s ease',
+                                        }}
+                                        onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
+                                        onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleSendRequest()}
+                                    />
+                                </div>
+                                <Button
+                                    onClick={handleSendRequest}
+                                    loading={sendLoading}
+                                    disabled={!targetUsername.trim() || sendLoading}
+                                    style={{
+                                        maxWidth: '100px',
+                                        padding: '0.75rem 1rem',
+                                        fontSize: '0.85rem',
+                                        borderRadius: '0.75rem',
+                                    }}
+                                >
+                                    요청
+                                </Button>
+                            </div>
+
+                            {/* 에러 */}
+                            {sendError && (
+                                <div className="error-alert">
+                                    {sendError}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default Friends;

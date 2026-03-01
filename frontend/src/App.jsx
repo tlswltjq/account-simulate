@@ -3,6 +3,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import AccountDetail from './pages/AccountDetail';
+import Friends from './pages/Friends';
 import { useAuth } from './context/AuthContext';
 
 function App() {
@@ -44,6 +45,11 @@ function App() {
       <Route path="/account/:accountAddress" element={
         <ProtectedRoute>
           <AccountDetail />
+        </ProtectedRoute>
+      } />
+      <Route path="/friends" element={
+        <ProtectedRoute>
+          <Friends />
         </ProtectedRoute>
       } />
     </Routes>
