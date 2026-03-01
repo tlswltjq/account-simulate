@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getFriends, getPendingRequests, sendFriendRequest, acceptFriendRequest } from '../api/friendshipApi';
 import { getAccounts } from '../api/accountApi';
-import { openEqualSplitBill } from '../api/splitBillApi';
+import { openEqualSplitBill, getRequestedSplitBills, getOpenedSplitBills, paySplitBill } from '../api/splitBillApi';
 import Button from '../components/Button';
 
 // ── 아바타 컴포넌트 ───────────────────────────────────────────────
@@ -273,6 +273,7 @@ const Friends = () => {
     const { username } = useAuth();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('friends');
+    const [historySubTab, setHistorySubTab] = useState('requested'); // 'requested' | 'opened'
     const [friends, setFriends] = useState([]);
     const [pending, setPending] = useState([]);
     const [accounts, setAccounts] = useState([]); // 계좌 목록 상태 추가
@@ -297,18 +298,28 @@ const Friends = () => {
     const [splitSuccess, setSplitSuccess] = useState(false);
     const [splitError, setSplitError] = useState(null);
 
+    // 정산 내역 상태
+    const [requestedSplits, setRequestedSplits] = useState([]);
+    const [openedSplits, setOpenedSplits] = useState([]);
+    const [payLoadingId, setPayLoadingId] = useState(null);
+    const [payAccountMap, setPayAccountMap] = useState({}); // { splitBillId: 'accountAddress' }
+
     const fetchData = async () => {
         try {
             setLoading(true);
             setError(null);
-            const [friendsData, pendingData, accountsData] = await Promise.all([
+            const [friendsData, pendingData, accountsData, requestedData, openedData] = await Promise.all([
                 getFriends(username),
                 getPendingRequests(username),
                 getAccounts(username),
+                getRequestedSplitBills(username),
+                getOpenedSplitBills(username),
             ]);
             setFriends(friendsData);
             setPending(pendingData);
             setAccounts(accountsData);
+            setRequestedSplits(requestedData.details || []);
+            setOpenedSplits(openedData.details || []);
         } catch (err) {
             setError(err.response?.data?.message || '데이터를 불러올 수 없습니다.');
         } finally {
@@ -404,6 +415,33 @@ const Friends = () => {
             setSplitError(err.response?.data?.message || '정산 요청에 실패했습니다.');
         } finally {
             setSplitLoading(false);
+        }
+    };
+
+    // 정산 결제 핸들러
+    const handlePaySplit = async (splitBillId) => {
+        const payAccountAddress = payAccountMap[splitBillId];
+        if (!payAccountAddress) {
+            setError(`결제할 출금 계좌를 선택해주세요 (ID: ${splitBillId})`);
+            return;
+        }
+
+        setPayLoadingId(splitBillId);
+        setError(null);
+        try {
+            await paySplitBill(splitBillId, username, payAccountAddress);
+            // 성공 시 데이터 재조회
+            await fetchData();
+            // 계좌 선택 초기화
+            setPayAccountMap(prev => {
+                const newMap = { ...prev };
+                delete newMap[splitBillId];
+                return newMap;
+            });
+        } catch (err) {
+            setError(err.response?.data?.message || '결제 처리에 실패했습니다.');
+        } finally {
+            setPayLoadingId(null);
         }
     };
 
@@ -532,6 +570,13 @@ const Friends = () => {
                         label="정산하기"
                         count={0}
                         onClick={() => setActiveTab('split')}
+                    />
+                    <TabButton
+                        active={activeTab === 'history'}
+                        icon="📜"
+                        label="정산 내역"
+                        count={requestedSplits.filter(s => s.status !== 'PAID').length}
+                        onClick={() => setActiveTab('history')}
                     />
                 </div>
 
@@ -913,6 +958,189 @@ const Friends = () => {
                                         정산 요청하기
                                     </Button>
 
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* ── 정산 내역 탭 ──────────────────────────────── */}
+                    {activeTab === 'history' && (
+                        <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+                            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                                <button
+                                    onClick={() => setHistorySubTab('requested')}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: historySubTab === 'requested' ? 'var(--primary)' : 'var(--text-muted)',
+                                        fontWeight: historySubTab === 'requested' ? '700' : '500',
+                                        fontSize: '0.95rem',
+                                        cursor: 'pointer',
+                                        padding: '0.5rem',
+                                    }}
+                                >
+                                    받은 정산 {requestedSplits.filter(s => s.status !== 'PAID').length > 0 && <span style={{ color: '#ef4444' }}>•</span>}
+                                </button>
+                                <button
+                                    onClick={() => setHistorySubTab('opened')}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: historySubTab === 'opened' ? 'var(--primary)' : 'var(--text-muted)',
+                                        fontWeight: historySubTab === 'opened' ? '700' : '500',
+                                        fontSize: '0.95rem',
+                                        cursor: 'pointer',
+                                        padding: '0.5rem',
+                                    }}
+                                >
+                                    내가 연 정산
+                                </button>
+                            </div>
+
+                            {/* 받은 정산 리스트 */}
+                            {historySubTab === 'requested' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    {requestedSplits.length === 0 ? (
+                                        <EmptyState
+                                            icon="🍃"
+                                            title="받은 정산이 없습니다"
+                                            subtitle="아직 결제 요청을 받은 내역이 없습니다."
+                                        />
+                                    ) : (
+                                        requestedSplits.map(split => {
+                                            const isPaid = split.status === 'PAID';
+                                            return (
+                                                <div key={split.splitBillId} style={{
+                                                    padding: '1.25rem',
+                                                    background: 'rgba(15, 23, 42, 0.4)',
+                                                    border: `1px solid ${isPaid ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                                                    borderRadius: '0.875rem',
+                                                }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                                        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                                            {new Date(split.openedAt).toLocaleDateString()}
+                                                        </span>
+                                                        <span style={{
+                                                            fontSize: '0.75rem',
+                                                            padding: '0.2rem 0.6rem',
+                                                            borderRadius: '1rem',
+                                                            background: isPaid ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                                            color: isPaid ? '#4ade80' : '#f87171',
+                                                            fontWeight: '600'
+                                                        }}>
+                                                            {isPaid ? '결제 완료' : '결제 필요'}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '0.25rem' }}>
+                                                        총 {split.totalAmount.toLocaleString()}원 정산
+                                                    </div>
+                                                    <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: isPaid ? '0' : '1rem' }}>
+                                                        내가 내야할 금액: <span style={{ color: isPaid ? '#4ade80' : '#f87171', fontWeight: '700' }}>{split.unPaid.toLocaleString()}원</span>
+                                                    </div>
+
+                                                    {!isPaid && (
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1rem' }}>
+                                                            <select
+                                                                value={payAccountMap[split.splitBillId] || ''}
+                                                                onChange={(e) => setPayAccountMap(prev => ({ ...prev, [split.splitBillId]: e.target.value }))}
+                                                                style={{
+                                                                    width: '100%',
+                                                                    padding: '0.6rem',
+                                                                    background: 'rgba(255, 255, 255, 0.05)',
+                                                                    border: '1px solid var(--border)',
+                                                                    borderRadius: '0.5rem',
+                                                                    color: 'var(--text-main)',
+                                                                    fontSize: '0.85rem',
+                                                                    outline: 'none',
+                                                                }}
+                                                            >
+                                                                <option value="" disabled>출금할 계좌를 선택하세요</option>
+                                                                {generalAccounts.map(acc => (
+                                                                    <option key={acc.accountAddress} value={acc.accountAddress}>
+                                                                        💰 잔액: {acc.balance.toLocaleString()}원 ({acc.accountAddress.slice(0, 8)}...)
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                            <Button
+                                                                onClick={() => handlePaySplit(split.splitBillId)}
+                                                                loading={payLoadingId === split.splitBillId}
+                                                                disabled={!payAccountMap[split.splitBillId] || payLoadingId === split.splitBillId}
+                                                                style={{
+                                                                    padding: '0.6rem',
+                                                                    fontSize: '0.85rem',
+                                                                    background: 'linear-gradient(135deg, #ef4444, #f87171)',
+                                                                    border: 'none',
+                                                                }}
+                                                            >
+                                                                결제(송금)하기
+                                                            </Button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            )}
+
+                            {/* 내가 연 정산 리스트 */}
+                            {historySubTab === 'opened' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    {openedSplits.length === 0 ? (
+                                        <EmptyState
+                                            icon="🌱"
+                                            title="내가 연 정산이 없습니다"
+                                            subtitle="'정산하기' 탭에서 새로운 정산을 시작해보세요."
+                                        />
+                                    ) : (
+                                        openedSplits.map(split => {
+                                            const isCompleted = split.unPaid === 0 || split.status === 'COMPLETED';
+                                            return (
+                                                <div key={split.splitBillId} style={{
+                                                    padding: '1.25rem',
+                                                    background: 'rgba(15, 23, 42, 0.4)',
+                                                    border: `1px solid ${isCompleted ? 'rgba(34, 197, 94, 0.3)' : 'var(--border)'}`,
+                                                    borderRadius: '0.875rem',
+                                                }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                                                        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                                            {new Date(split.openedAt).toLocaleDateString()}
+                                                        </span>
+                                                        <span style={{
+                                                            fontSize: '0.75rem',
+                                                            padding: '0.2rem 0.6rem',
+                                                            borderRadius: '1rem',
+                                                            background: isCompleted ? 'rgba(34, 197, 94, 0.15)' : 'rgba(99, 102, 241, 0.15)',
+                                                            color: isCompleted ? '#4ade80' : '#818cf8',
+                                                            fontWeight: '600'
+                                                        }}>
+                                                            {isCompleted ? '정산 완료' : '진행 중'}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ fontSize: '1.15rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '0.75rem' }}>
+                                                        총 {split.totalAmount.toLocaleString()}원
+                                                    </div>
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        background: 'rgba(0,0,0,0.2)',
+                                                        padding: '0.75rem',
+                                                        borderRadius: '0.5rem',
+                                                        fontSize: '0.85rem'
+                                                    }}>
+                                                        <div>
+                                                            <div style={{ color: 'var(--text-muted)', marginBottom: '0.2rem' }}>회수 완료</div>
+                                                            <div style={{ color: '#4ade80', fontWeight: '600' }}>{split.paid.toLocaleString()}원</div>
+                                                        </div>
+                                                        <div style={{ textAlign: 'right' }}>
+                                                            <div style={{ color: 'var(--text-muted)', marginBottom: '0.2rem' }}>남은 금액</div>
+                                                            <div style={{ color: '#f87171', fontWeight: '600' }}>{split.unPaid.toLocaleString()}원</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
                                 </div>
                             )}
                         </div>
