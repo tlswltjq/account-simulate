@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getFriends, getPendingRequests, sendFriendRequest, acceptFriendRequest } from '../api/friendshipApi';
+import { getAccounts } from '../api/accountApi';
+import { openEqualSplitBill } from '../api/splitBillApi';
 import Button from '../components/Button';
 
 // ── 아바타 컴포넌트 ───────────────────────────────────────────────
@@ -273,6 +275,7 @@ const Friends = () => {
     const [activeTab, setActiveTab] = useState('friends');
     const [friends, setFriends] = useState([]);
     const [pending, setPending] = useState([]);
+    const [accounts, setAccounts] = useState([]); // 계좌 목록 상태 추가
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -285,16 +288,27 @@ const Friends = () => {
     // 수락 로딩 상태
     const [acceptingId, setAcceptingId] = useState(null);
 
+    // 정산(Split Bill) 관련 상태
+    const [selectedFriends, setSelectedFriends] = useState([]);
+    const [includeMe, setIncludeMe] = useState(true);
+    const [splitAmount, setSplitAmount] = useState('');
+    const [selectedAccount, setSelectedAccount] = useState('');
+    const [splitLoading, setSplitLoading] = useState(false);
+    const [splitSuccess, setSplitSuccess] = useState(false);
+    const [splitError, setSplitError] = useState(null);
+
     const fetchData = async () => {
         try {
             setLoading(true);
             setError(null);
-            const [friendsData, pendingData] = await Promise.all([
+            const [friendsData, pendingData, accountsData] = await Promise.all([
                 getFriends(username),
                 getPendingRequests(username),
+                getAccounts(username),
             ]);
             setFriends(friendsData);
             setPending(pendingData);
+            setAccounts(accountsData);
         } catch (err) {
             setError(err.response?.data?.message || '데이터를 불러올 수 없습니다.');
         } finally {
@@ -343,6 +357,55 @@ const Friends = () => {
     };
 
     const receivedRequests = pending.filter(p => p.receiverUsername === username);
+    const generalAccounts = accounts.filter(a => a.accountType === 'GENERAL');
+
+    // 친구 선택 토글
+    const toggleFriendSelection = (friendUsername) => {
+        setSelectedFriends(prev =>
+            prev.includes(friendUsername)
+                ? prev.filter(f => f !== friendUsername)
+                : [...prev, friendUsername]
+        );
+    };
+
+    // 정산 요청 핸들러
+    const handleSplitRequest = async () => {
+        if (!selectedAccount) {
+            setSplitError('출금할 일반 계좌를 선택해주세요.');
+            return;
+        }
+        if (selectedFriends.length === 0) {
+            setSplitError('정산할 친구를 1명 이상 선택해주세요.');
+            return;
+        }
+        const amount = Number(splitAmount);
+        if (!amount || amount <= 0) {
+            setSplitError('유효한 총 정산 금액을 입력해주세요.');
+            return;
+        }
+
+        setSplitLoading(true);
+        setSplitError(null);
+        try {
+            // 본인 포함 옵션에 따른 participants 배열 구성
+            const participants = includeMe ? [...selectedFriends, username] : [...selectedFriends];
+
+            await openEqualSplitBill(username, selectedAccount, amount, participants);
+
+            setSplitSuccess(true);
+            setTimeout(() => setSplitSuccess(false), 3000);
+
+            // 폼 초기화
+            setSelectedFriends([]);
+            setIncludeMe(true);
+            setSplitAmount('');
+            setSelectedAccount('');
+        } catch (err) {
+            setSplitError(err.response?.data?.message || '정산 요청에 실패했습니다.');
+        } finally {
+            setSplitLoading(false);
+        }
+    };
 
     return (
         <div className="animate-fade-in" style={{ maxWidth: '680px', margin: '0 auto', width: '100%' }}>
@@ -462,6 +525,13 @@ const Friends = () => {
                         label="친구 추가"
                         count={0}
                         onClick={() => setActiveTab('add')}
+                    />
+                    <TabButton
+                        active={activeTab === 'split'}
+                        icon="💸"
+                        label="정산하기"
+                        count={0}
+                        onClick={() => setActiveTab('split')}
                     />
                 </div>
 
@@ -634,6 +704,215 @@ const Friends = () => {
                             {sendError && (
                                 <div className="error-alert">
                                     {sendError}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* ── 정산하기 탭 ────────────────────────────── */}
+                    {activeTab === 'split' && (
+                        <div style={{ maxWidth: '440px', margin: '0 auto' }}>
+                            <div style={{
+                                textAlign: 'center',
+                                marginBottom: '1.5rem',
+                            }}>
+                                <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>💸</div>
+                                <div style={{
+                                    fontSize: '1rem',
+                                    fontWeight: '600',
+                                    color: 'var(--text-main)',
+                                    marginBottom: '0.35rem',
+                                }}>
+                                    친구와 정산하기
+                                </div>
+                                <div style={{
+                                    fontSize: '0.8rem',
+                                    color: 'var(--text-muted)',
+                                }}>
+                                    정산할 대상을 선택하고 금액을 나누거나 청구하세요.
+                                </div>
+                            </div>
+
+                            {/* 성공 알림 */}
+                            {splitSuccess && (
+                                <div style={{
+                                    marginBottom: '1rem',
+                                    padding: '0.75rem 1rem',
+                                    background: 'rgba(34, 197, 94, 0.15)',
+                                    border: '1px solid rgba(34, 197, 94, 0.3)',
+                                    borderRadius: '0.75rem',
+                                    color: '#4ade80',
+                                    fontSize: '0.85rem',
+                                    fontWeight: '500',
+                                    textAlign: 'center',
+                                }}>
+                                    ✅ 정산 요청을 생성했습니다!
+                                </div>
+                            )}
+
+                            {friends.length === 0 ? (
+                                <div className="error-alert" style={{ textAlign: 'center' }}>
+                                    정산할 친구가 없습니다. 먼저 친구를 추가해주세요.
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
+                                    {/* 출금 계좌 선택 */}
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem', fontWeight: '600' }}>
+                                            내 출금 계좌 선택
+                                        </label>
+                                        <select
+                                            value={selectedAccount}
+                                            onChange={(e) => setSelectedAccount(e.target.value)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '0.75rem 1rem',
+                                                background: 'rgba(255, 255, 255, 0.06)',
+                                                border: '1px solid var(--border)',
+                                                borderRadius: '0.75rem',
+                                                color: 'var(--text-main)',
+                                                fontSize: '0.9rem',
+                                                outline: 'none',
+                                            }}
+                                        >
+                                            <option value="" disabled>사용할 일반 계좌를 선택하세요</option>
+                                            {generalAccounts.map(acc => (
+                                                <option key={acc.accountAddress} value={acc.accountAddress}>
+                                                    💰 {acc.accountAddress.slice(0, 10)}... (잔액: {acc.balance.toLocaleString()}원)
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* 정산 대상 (친구) 선택 */}
+                                    <div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                            <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+                                                정산할 대상 선택 ({selectedFriends.length}명)
+                                            </label>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--text-main)', cursor: 'pointer' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={includeMe}
+                                                    onChange={(e) => setIncludeMe(e.target.checked)}
+                                                    style={{ cursor: 'pointer' }}
+                                                />
+                                                나 포함해서 1/N
+                                            </label>
+                                        </div>
+                                        <div style={{
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '0.5rem',
+                                            maxHeight: '200px',
+                                            overflowY: 'auto',
+                                            padding: '0.5rem',
+                                            background: 'rgba(0, 0, 0, 0.15)',
+                                            borderRadius: '0.75rem',
+                                            border: '1px solid var(--border)'
+                                        }}>
+                                            {friends.map(friendUsername => (
+                                                <label
+                                                    key={friendUsername}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '0.75rem',
+                                                        padding: '0.65rem 1rem',
+                                                        background: selectedFriends.includes(friendUsername) ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                                                        border: `1px solid ${selectedFriends.includes(friendUsername) ? 'var(--primary)' : 'rgba(255, 255, 255, 0.08)'}`,
+                                                        borderRadius: '0.5rem',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s',
+                                                    }}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedFriends.includes(friendUsername)}
+                                                        onChange={() => toggleFriendSelection(friendUsername)}
+                                                        style={{ cursor: 'pointer' }}
+                                                    />
+                                                    <span style={{ fontSize: '0.9rem', color: 'var(--text-main)', fontWeight: '500' }}>
+                                                        {friendUsername}
+                                                    </span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* 총 금액 입력 */}
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem', fontWeight: '600' }}>
+                                            총 정산 금액 (원)
+                                        </label>
+                                        <input
+                                            type="number"
+                                            value={splitAmount}
+                                            onChange={(e) => setSplitAmount(e.target.value)}
+                                            placeholder="예: 50000"
+                                            min="0"
+                                            style={{
+                                                width: '100%',
+                                                padding: '0.75rem 1rem',
+                                                background: 'rgba(255, 255, 255, 0.06)',
+                                                border: '1px solid var(--border)',
+                                                borderRadius: '0.75rem',
+                                                color: 'var(--text-main)',
+                                                fontSize: '0.9rem',
+                                                boxSizing: 'border-box',
+                                                outline: 'none',
+                                            }}
+                                            onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
+                                            onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
+                                        />
+                                    </div>
+
+                                    {/* 금액 요약 */}
+                                    {selectedFriends.length > 0 && splitAmount > 0 && (
+                                        <div style={{
+                                            padding: '1rem',
+                                            background: 'rgba(99, 102, 241, 0.1)',
+                                            borderRadius: '0.75rem',
+                                            border: '1px solid rgba(99, 102, 241, 0.2)',
+                                            fontSize: '0.85rem',
+                                            color: 'var(--text-main)',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center'
+                                        }}>
+                                            <span>
+                                                총 인원 {includeMe ? selectedFriends.length + 1 : selectedFriends.length}명 (1인당)
+                                            </span>
+                                            <span style={{ fontWeight: '700', fontSize: '1rem', color: 'var(--primary)' }}>
+                                                {Math.floor(splitAmount / (includeMe ? selectedFriends.length + 1 : selectedFriends.length)).toLocaleString()} 원
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {/* 에러 표시 */}
+                                    {splitError && (
+                                        <div className="error-alert">
+                                            {splitError}
+                                        </div>
+                                    )}
+
+                                    {/* 정산 버튼 */}
+                                    <Button
+                                        onClick={handleSplitRequest}
+                                        loading={splitLoading}
+                                        disabled={splitLoading || selectedFriends.length === 0 || !selectedAccount || !splitAmount || splitAmount <= 0}
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.85rem',
+                                            marginTop: '0.5rem',
+                                            fontSize: '0.95rem',
+                                            fontWeight: '600'
+                                        }}
+                                    >
+                                        정산 요청하기
+                                    </Button>
+
                                 </div>
                             )}
                         </div>
