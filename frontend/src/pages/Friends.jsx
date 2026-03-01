@@ -1009,6 +1009,10 @@ const Friends = () => {
                                     ) : (
                                         requestedSplits.map(split => {
                                             const isPaid = split.status === 'PAID';
+                                            const myUnpaidShare = split.unPaid.find(s => s.participant === username);
+                                            const myPaidShare = split.paid.find(s => s.participant === username);
+                                            const myAmount = myUnpaidShare ? myUnpaidShare.amount : (myPaidShare ? myPaidShare.amount : 0);
+
                                             return (
                                                 <div key={split.splitBillId} style={{
                                                     padding: '1.25rem',
@@ -1035,7 +1039,7 @@ const Friends = () => {
                                                         총 {split.totalAmount.toLocaleString()}원 정산
                                                     </div>
                                                     <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: isPaid ? '0' : '1rem' }}>
-                                                        내가 내야할 금액: <span style={{ color: isPaid ? '#4ade80' : '#f87171', fontWeight: '700' }}>{split.unPaid.toLocaleString()}원</span>
+                                                        내가 내야할/낸 금액: <span style={{ color: isPaid ? '#4ade80' : '#f87171', fontWeight: '700' }}>{myAmount.toLocaleString()}원</span>
                                                     </div>
 
                                                     {!isPaid && (
@@ -1094,7 +1098,10 @@ const Friends = () => {
                                         />
                                     ) : (
                                         openedSplits.map(split => {
-                                            const isCompleted = split.unPaid === 0 || split.status === 'COMPLETED';
+                                            const isCompleted = split.unPaid.length === 0 || split.status === 'COMPLETED';
+                                            const totalPaid = split.paid.reduce((sum, s) => sum + s.amount, 0);
+                                            const totalUnPaid = split.unPaid.reduce((sum, s) => sum + s.amount, 0);
+
                                             return (
                                                 <div key={split.splitBillId} style={{
                                                     padding: '1.25rem',
@@ -1130,11 +1137,11 @@ const Friends = () => {
                                                     }}>
                                                         <div>
                                                             <div style={{ color: 'var(--text-muted)', marginBottom: '0.2rem' }}>회수 완료</div>
-                                                            <div style={{ color: '#4ade80', fontWeight: '600' }}>{split.paid.toLocaleString()}원</div>
+                                                            <div style={{ color: '#4ade80', fontWeight: '600' }}>{totalPaid.toLocaleString()}원</div>
                                                         </div>
                                                         <div style={{ textAlign: 'right' }}>
                                                             <div style={{ color: 'var(--text-muted)', marginBottom: '0.2rem' }}>남은 금액</div>
-                                                            <div style={{ color: '#f87171', fontWeight: '600' }}>{split.unPaid.toLocaleString()}원</div>
+                                                            <div style={{ color: '#f87171', fontWeight: '600' }}>{totalUnPaid.toLocaleString()}원</div>
                                                         </div>
                                                     </div>
                                                 </div>
