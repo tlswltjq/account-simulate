@@ -575,7 +575,7 @@ const Friends = () => {
                         active={activeTab === 'history'}
                         icon="📜"
                         label="정산 내역"
-                        count={requestedSplits.filter(s => s.status !== 'PAID').length}
+                        count={requestedSplits.filter(s => s.status !== 'PAID' && !s.paid.some(p => p.participant === username)).length}
                         onClick={() => setActiveTab('history')}
                     />
                 </div>
@@ -979,7 +979,7 @@ const Friends = () => {
                                         padding: '0.5rem',
                                     }}
                                 >
-                                    받은 정산 {requestedSplits.filter(s => s.status !== 'PAID').length > 0 && <span style={{ color: '#ef4444' }}>•</span>}
+                                    받은 정산 {requestedSplits.filter(s => s.status !== 'PAID' && !s.paid.some(p => p.participant === username)).length > 0 && <span style={{ color: '#ef4444' }}>•</span>}
                                 </button>
                                 <button
                                     onClick={() => setHistorySubTab('opened')}
@@ -1008,9 +1008,9 @@ const Friends = () => {
                                         />
                                     ) : (
                                         requestedSplits.map(split => {
-                                            const isPaid = split.status === 'PAID';
                                             const myUnpaidShare = split.unPaid.find(s => s.participant === username);
                                             const myPaidShare = split.paid.find(s => s.participant === username);
+                                            const isPaid = split.status === 'PAID' || !!myPaidShare;
                                             const myAmount = myUnpaidShare ? myUnpaidShare.amount : (myPaidShare ? myPaidShare.amount : 0);
 
                                             return (
