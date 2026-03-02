@@ -303,6 +303,7 @@ const Friends = () => {
     const [openedSplits, setOpenedSplits] = useState([]);
     const [payLoadingId, setPayLoadingId] = useState(null);
     const [payAccountMap, setPayAccountMap] = useState({}); // { splitBillId: 'accountAddress' }
+    const [expandedSplitId, setExpandedSplitId] = useState(null); // 클릭으로 확장중인 정산 ID
 
     const fetchData = async () => {
         try {
@@ -1012,36 +1013,99 @@ const Friends = () => {
                                             const myPaidShare = split.paid.find(s => s.participant === username);
                                             const isPaid = split.status === 'PAID' || !!myPaidShare;
                                             const myAmount = myUnpaidShare ? myUnpaidShare.amount : (myPaidShare ? myPaidShare.amount : 0);
+                                            const isExpanded = expandedSplitId === `req-${split.splitBillId}`;
 
                                             return (
-                                                <div key={split.splitBillId} style={{
-                                                    padding: '1.25rem',
-                                                    background: 'rgba(15, 23, 42, 0.4)',
-                                                    border: `1px solid ${isPaid ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-                                                    borderRadius: '0.875rem',
-                                                }}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                                        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                                                            {new Date(split.openedAt).toLocaleDateString()}
-                                                        </span>
-                                                        <span style={{
-                                                            fontSize: '0.75rem',
-                                                            padding: '0.2rem 0.6rem',
-                                                            borderRadius: '1rem',
-                                                            background: isPaid ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                                            color: isPaid ? '#4ade80' : '#f87171',
-                                                            fontWeight: '600'
-                                                        }}>
-                                                            {isPaid ? '결제 완료' : '결제 필요'}
-                                                        </span>
-                                                    </div>
-                                                    <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '0.25rem' }}>
-                                                        총 {split.totalAmount.toLocaleString()}원 정산
-                                                    </div>
-                                                    <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: isPaid ? '0' : '1rem' }}>
-                                                        내가 내야할/낸 금액: <span style={{ color: isPaid ? '#4ade80' : '#f87171', fontWeight: '700' }}>{myAmount.toLocaleString()}원</span>
+                                                <div
+                                                    key={split.splitBillId}
+                                                    style={{
+                                                        padding: '1.25rem',
+                                                        background: 'rgba(15, 23, 42, 0.4)',
+                                                        border: `1px solid ${isPaid ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                                                        borderRadius: '0.875rem',
+                                                        transition: 'all 0.2s ease',
+                                                    }}
+                                                >
+                                                    {/* 헤더 영역: 클릭 시 확장/축소 */}
+                                                    <div
+                                                        onClick={() => setExpandedSplitId(isExpanded ? null : `req-${split.splitBillId}`)}
+                                                        style={{ cursor: 'pointer' }}
+                                                    >
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                                            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                                                {new Date(split.openedAt).toLocaleDateString()}
+                                                            </span>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                                <span style={{
+                                                                    fontSize: '0.75rem',
+                                                                    padding: '0.2rem 0.6rem',
+                                                                    borderRadius: '1rem',
+                                                                    background: isPaid ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                                                    color: isPaid ? '#4ade80' : '#f87171',
+                                                                    fontWeight: '600'
+                                                                }}>
+                                                                    {isPaid ? '결제 완료' : '결제 필요'}
+                                                                </span>
+                                                                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                                                                    {isExpanded ? '▲' : '▼'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '0.25rem' }}>
+                                                            총 {split.totalAmount.toLocaleString()}원 정산
+                                                        </div>
+                                                        <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                                                            내가 내야할/낸 금액: <span style={{ color: isPaid ? '#4ade80' : '#f87171', fontWeight: '700' }}>{myAmount.toLocaleString()}원</span>
+                                                        </div>
                                                     </div>
 
+                                                    {/* 확장된 세부사항 */}
+                                                    {isExpanded && (
+                                                        <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '1rem' }}>
+                                                            {/* 결제 완료 맹버 */}
+                                                            {split.paid.length > 0 && (
+                                                                <div style={{ marginBottom: '0.75rem' }}>
+                                                                    <div style={{ fontSize: '0.75rem', color: '#4ade80', fontWeight: '600', marginBottom: '0.4rem' }}>✅ 결제 완료</div>
+                                                                    {split.paid.map(p => (
+                                                                        <div key={p.participant} style={{
+                                                                            display: 'flex',
+                                                                            justifyContent: 'space-between',
+                                                                            padding: '0.4rem 0.7rem',
+                                                                            background: 'rgba(34,197,94,0.07)',
+                                                                            borderRadius: '0.5rem',
+                                                                            marginBottom: '0.3rem',
+                                                                            fontSize: '0.82rem',
+                                                                        }}>
+                                                                            <span style={{ color: 'var(--text-main)' }}>{p.participant === username ? '나 (★)' : p.participant}</span>
+                                                                            <span style={{ color: '#4ade80', fontWeight: '600' }}>{p.amount.toLocaleString()}원</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                            {/* 미결제 맹버 */}
+                                                            {split.unPaid.length > 0 && (
+                                                                <div style={{ marginBottom: '0.75rem' }}>
+                                                                    <div style={{ fontSize: '0.75rem', color: '#f87171', fontWeight: '600', marginBottom: '0.4rem' }}>⏳ 미결제</div>
+                                                                    {split.unPaid.map(p => (
+                                                                        <div key={p.participant} style={{
+                                                                            display: 'flex',
+                                                                            justifyContent: 'space-between',
+                                                                            padding: '0.4rem 0.7rem',
+                                                                            background: 'rgba(239,68,68,0.07)',
+                                                                            borderRadius: '0.5rem',
+                                                                            marginBottom: '0.3rem',
+                                                                            fontSize: '0.82rem',
+                                                                        }}>
+                                                                            <span style={{ color: 'var(--text-main)' }}>{p.participant === username ? '나 (★)' : p.participant}</span>
+                                                                            <span style={{ color: '#f87171', fontWeight: '600' }}>{p.amount.toLocaleString()}원</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    {/* 결제 폼 (isPaid 아닌 경우만) */}
                                                     {!isPaid && (
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1rem' }}>
                                                             <select
@@ -1101,49 +1165,112 @@ const Friends = () => {
                                             const isCompleted = split.unPaid.length === 0 || split.status === 'COMPLETED';
                                             const totalPaid = split.paid.reduce((sum, s) => sum + s.amount, 0);
                                             const totalUnPaid = split.unPaid.reduce((sum, s) => sum + s.amount, 0);
+                                            const isExpanded = expandedSplitId === `opn-${split.splitBillId}`;
 
                                             return (
-                                                <div key={split.splitBillId} style={{
-                                                    padding: '1.25rem',
-                                                    background: 'rgba(15, 23, 42, 0.4)',
-                                                    border: `1px solid ${isCompleted ? 'rgba(34, 197, 94, 0.3)' : 'var(--border)'}`,
-                                                    borderRadius: '0.875rem',
-                                                }}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                                                        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                                                            {new Date(split.openedAt).toLocaleDateString()}
-                                                        </span>
-                                                        <span style={{
-                                                            fontSize: '0.75rem',
-                                                            padding: '0.2rem 0.6rem',
-                                                            borderRadius: '1rem',
-                                                            background: isCompleted ? 'rgba(34, 197, 94, 0.15)' : 'rgba(99, 102, 241, 0.15)',
-                                                            color: isCompleted ? '#4ade80' : '#818cf8',
-                                                            fontWeight: '600'
+                                                <div
+                                                    key={split.splitBillId}
+                                                    style={{
+                                                        padding: '1.25rem',
+                                                        background: 'rgba(15, 23, 42, 0.4)',
+                                                        border: `1px solid ${isCompleted ? 'rgba(34, 197, 94, 0.3)' : 'var(--border)'}`,
+                                                        borderRadius: '0.875rem',
+                                                        transition: 'all 0.2s ease',
+                                                    }}
+                                                >
+                                                    {/* 헤더: 클릭 시 확장/축소 */}
+                                                    <div
+                                                        onClick={() => setExpandedSplitId(isExpanded ? null : `opn-${split.splitBillId}`)}
+                                                        style={{ cursor: 'pointer' }}
+                                                    >
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                                                            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                                                {new Date(split.openedAt).toLocaleDateString()}
+                                                            </span>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                                <span style={{
+                                                                    fontSize: '0.75rem',
+                                                                    padding: '0.2rem 0.6rem',
+                                                                    borderRadius: '1rem',
+                                                                    background: isCompleted ? 'rgba(34, 197, 94, 0.15)' : 'rgba(99, 102, 241, 0.15)',
+                                                                    color: isCompleted ? '#4ade80' : '#818cf8',
+                                                                    fontWeight: '600'
+                                                                }}>
+                                                                    {isCompleted ? '정산 완료' : '진행 중'}
+                                                                </span>
+                                                                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                                                                    {isExpanded ? '▲' : '▼'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ fontSize: '1.15rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '0.75rem' }}>
+                                                            총 {split.totalAmount.toLocaleString()}원
+                                                        </div>
+                                                        <div style={{
+                                                            display: 'flex',
+                                                            justifyContent: 'space-between',
+                                                            background: 'rgba(0,0,0,0.2)',
+                                                            padding: '0.75rem',
+                                                            borderRadius: '0.5rem',
+                                                            fontSize: '0.85rem'
                                                         }}>
-                                                            {isCompleted ? '정산 완료' : '진행 중'}
-                                                        </span>
-                                                    </div>
-                                                    <div style={{ fontSize: '1.15rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '0.75rem' }}>
-                                                        총 {split.totalAmount.toLocaleString()}원
-                                                    </div>
-                                                    <div style={{
-                                                        display: 'flex',
-                                                        justifyContent: 'space-between',
-                                                        background: 'rgba(0,0,0,0.2)',
-                                                        padding: '0.75rem',
-                                                        borderRadius: '0.5rem',
-                                                        fontSize: '0.85rem'
-                                                    }}>
-                                                        <div>
-                                                            <div style={{ color: 'var(--text-muted)', marginBottom: '0.2rem' }}>회수 완료</div>
-                                                            <div style={{ color: '#4ade80', fontWeight: '600' }}>{totalPaid.toLocaleString()}원</div>
-                                                        </div>
-                                                        <div style={{ textAlign: 'right' }}>
-                                                            <div style={{ color: 'var(--text-muted)', marginBottom: '0.2rem' }}>남은 금액</div>
-                                                            <div style={{ color: '#f87171', fontWeight: '600' }}>{totalUnPaid.toLocaleString()}원</div>
+                                                            <div>
+                                                                <div style={{ color: 'var(--text-muted)', marginBottom: '0.2rem' }}>회수 완료</div>
+                                                                <div style={{ color: '#4ade80', fontWeight: '600' }}>{totalPaid.toLocaleString()}원</div>
+                                                            </div>
+                                                            <div style={{ textAlign: 'right' }}>
+                                                                <div style={{ color: 'var(--text-muted)', marginBottom: '0.2rem' }}>남은 금액</div>
+                                                                <div style={{ color: '#f87171', fontWeight: '600' }}>{totalUnPaid.toLocaleString()}원</div>
+                                                            </div>
                                                         </div>
                                                     </div>
+
+                                                    {/* 확장된 참여자 세부사항 */}
+                                                    {isExpanded && (
+                                                        <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '1rem' }}>
+                                                            {split.paid.length > 0 && (
+                                                                <div style={{ marginBottom: '0.75rem' }}>
+                                                                    <div style={{ fontSize: '0.75rem', color: '#4ade80', fontWeight: '600', marginBottom: '0.4rem' }}>✅ 결제 완료</div>
+                                                                    {split.paid.map(p => (
+                                                                        <div key={p.participant} style={{
+                                                                            display: 'flex',
+                                                                            justifyContent: 'space-between',
+                                                                            padding: '0.4rem 0.7rem',
+                                                                            background: 'rgba(34,197,94,0.07)',
+                                                                            borderRadius: '0.5rem',
+                                                                            marginBottom: '0.3rem',
+                                                                            fontSize: '0.82rem',
+                                                                        }}>
+                                                                            <span style={{ color: 'var(--text-main)' }}>{p.participant}</span>
+                                                                            <div style={{ textAlign: 'right' }}>
+                                                                                <div style={{ color: '#4ade80', fontWeight: '600' }}>{p.amount.toLocaleString()}원</div>
+                                                                                {p.paidAt && <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{new Date(p.paidAt).toLocaleString()}</div>}
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                            {split.unPaid.length > 0 && (
+                                                                <div>
+                                                                    <div style={{ fontSize: '0.75rem', color: '#f87171', fontWeight: '600', marginBottom: '0.4rem' }}>⏳ 미결제</div>
+                                                                    {split.unPaid.map(p => (
+                                                                        <div key={p.participant} style={{
+                                                                            display: 'flex',
+                                                                            justifyContent: 'space-between',
+                                                                            padding: '0.4rem 0.7rem',
+                                                                            background: 'rgba(239,68,68,0.07)',
+                                                                            borderRadius: '0.5rem',
+                                                                            marginBottom: '0.3rem',
+                                                                            fontSize: '0.82rem',
+                                                                        }}>
+                                                                            <span style={{ color: 'var(--text-main)' }}>{p.participant}</span>
+                                                                            <span style={{ color: '#f87171', fontWeight: '600' }}>{p.amount.toLocaleString()}원</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             );
                                         })
