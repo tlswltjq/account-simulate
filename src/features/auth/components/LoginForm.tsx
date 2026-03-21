@@ -19,11 +19,16 @@ export function LoginForm() {
     setErrorMsg('');
 
     try {
-      // 자체 API 라우트로 전송 (HttpOnly 쿠키로 토큰 받음)
-      await axios.post('/api/auth/login', { email, password });
+      // 프론트엔드 API 인스턴스를 통해 백엔드 API 직접 호출
+      // axios 대신 설정된 api 인스턴스를 사용하거나, 자체 axios를 사용해 baseUrl로 호출
+      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://tlswltjq.iptime.org:8080'}/api/v1/auth/login`, { email, password });
       
+      const { accessToken, refreshToken } = res.data.data;
+      if (accessToken) localStorage.setItem('accessToken', accessToken);
+      if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+
       router.push('/');
-      router.refresh(); // 레이아웃 및 미들웨어 상태 업데이트 보장
+      router.refresh();
     } catch (err: any) {
       setErrorMsg(err.response?.data?.message || '로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.');
     } finally {

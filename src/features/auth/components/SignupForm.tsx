@@ -21,8 +21,8 @@ export function SignupForm() {
     setErrorMsg('');
 
     try {
-      // 프록시 라우터로 요청하여 백엔드 '/api/v1/auth/signup' 엔드포인트 호출
-      await axios.post('/api/auth/signup', { email, password, name, nickname });
+      // 백엔드 바로 호출
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://tlswltjq.iptime.org:8080'}/api/v1/auth/signup`, { email, password, name, nickname });
       
       // 회원가입 성공 시 바로 로그인 페이지로 이동
       router.push('/login');

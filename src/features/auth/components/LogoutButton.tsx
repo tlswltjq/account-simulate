@@ -1,6 +1,6 @@
 'use client';
 
-import axios from 'axios';
+import { api } from '@/shared/api/axios';
 import { useRouter } from 'next/navigation';
 
 export function LogoutButton() {
@@ -8,11 +8,17 @@ export function LogoutButton() {
 
   const handleLogout = async () => {
     try {
-      await axios.post('/api/auth/logout');
-      router.push('/login');
-      router.refresh(); // 미들웨어 상태 및 캐시 갱신
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (refreshToken) {
+        await api.post('/auth/logout', { refreshToken }).catch(console.error);
+      }
     } catch (error) {
       console.error('Logout failed:', error);
+    } finally {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      router.push('/login');
+      router.refresh();
     }
   };
 

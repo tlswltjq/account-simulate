@@ -1,16 +1,24 @@
 import axios from 'axios';
 
-// 클라이언트 사이드에서는 Next.js 서버(또는 Rewrite) 경로로 요청합니다.
-// 이후 Middleware에서 HttpOnly 쿠키의 토큰을 읽어 Authorization 헤더를 세팅한 뒤 백엔드로 포워딩합니다.
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://tlswltjq.iptime.org:8080';
+
 export const api = axios.create({
-  baseURL: '/api/proxy',
-  withCredentials: true, // 로컬 쿠키 포함 설정
+  baseURL: `${API_BASE_URL}/api/v1`,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// 인터셉터는 기본적으로 토큰 갱신(Refresh) 로직을 위한 용도로 사용됩니다.
+api.interceptors.request.use((config) => {
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
+
 let isRefreshing = false;
 let failedQueue: any[] = [];
 
@@ -30,7 +38,6 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // 401 Unauthorized 에러 발생 및 재시도하지 않은 요청인 경우 토큰 재발급 시도
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise(function (resolve, reject) {
@@ -48,13 +55,27 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        await axios.post('/api/auth/reissue');
+        const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
+        if (!refreshToken) {
+          throw new Error('No refresh token');
+        }
+
+        // 직접 /auth/reissue 엔드포인트 호출
+        const { data } = await axios.post(`${API_BASE_URL}/api/v1/auth/reissue`, { refreshToken });
+        
+        const newAccessToken = data.data?.accessToken;
+        const newRefreshToken = data.data?.refreshToken;
+
+        if (newAccessToken) localStorage.setItem('accessToken', newAccessToken);
+        if (newRefreshToken) localStorage.setItem('refreshToken', newRefreshToken);
+
         processQueue(null);
         return api(originalRequest);
       } catch (err) {
         processQueue(err, null);
-        // 리프레시 토큰까지 만료된 경우 로그인 페이지로 리다이렉트 (클라이언트 사이드에서만 가능)
         if (typeof window !== 'undefined') {
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
           window.location.href = '/login';
         }
         return Promise.reject(err);
