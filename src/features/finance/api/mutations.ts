@@ -54,3 +54,17 @@ export const useCreateSavingAccount = () => {
     },
   });
 };
+
+export const useCreateGeneralAccount = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post('/finance/accounts/general');
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    },
+  });
+};
