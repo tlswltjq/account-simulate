@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
+import { api } from '@/shared/api/axios';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -19,9 +19,8 @@ export function LoginForm() {
     setErrorMsg('');
 
     try {
-      // 프론트엔드 API 인스턴스를 통해 백엔드 API 직접 호출
-      // axios 대신 설정된 api 인스턴스를 사용하거나, 자체 axios를 사용해 baseUrl로 호출
-      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://tlswltjq.iptime.org:8080'}/api/v1/auth/login`, { email, password });
+      // 이제 api.post는 '/api/proxy/auth/login'으로 전송하고, 이 프록시가 백엔드를 호출합니다.
+      const res = await api.post('/auth/login', { email, password });
       
       const { accessToken, refreshToken } = res.data.data;
       if (accessToken) localStorage.setItem('accessToken', accessToken);

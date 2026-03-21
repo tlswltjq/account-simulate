@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
+import { api } from '@/shared/api/axios';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -21,8 +21,8 @@ export function SignupForm() {
     setErrorMsg('');
 
     try {
-      // 백엔드 바로 호출
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://tlswltjq.iptime.org:8080'}/api/v1/auth/signup`, { email, password, name, nickname });
+      // 프록시를 통해 백엔드 바로 호출
+      await api.post('/auth/signup', { email, password, name, nickname });
       
       // 회원가입 성공 시 바로 로그인 페이지로 이동
       router.push('/login');

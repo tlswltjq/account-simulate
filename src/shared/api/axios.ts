@@ -1,9 +1,8 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://tlswltjq.iptime.org:8080';
-
+// 브라우저의 Mixed Content 브록(보안)을 피하기 위해, 같은 도메인의 /api/proxy 라우트로 모든 요청을 보냅니다.
 export const api = axios.create({
-  baseURL: `${API_BASE_URL}/api/v1`,
+  baseURL: '/api/proxy',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -13,7 +12,7 @@ api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('accessToken');
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers.Authorization = `Bearer ${token}`; // 프록시로 보냄
     }
   }
   return config;
@@ -60,8 +59,8 @@ api.interceptors.response.use(
           throw new Error('No refresh token');
         }
 
-        // 직접 /auth/reissue 엔드포인트 호출
-        const { data } = await axios.post(`${API_BASE_URL}/api/v1/auth/reissue`, { refreshToken });
+        // 프록시 라우터로 reissue 전송
+        const { data } = await axios.post('/api/proxy/auth/reissue', { refreshToken });
         
         const newAccessToken = data.data?.accessToken;
         const newRefreshToken = data.data?.refreshToken;
