@@ -31,10 +31,10 @@ export function AccountList() {
 
   const handleCreateSaving = () => {
     if (!primaryAccount) return alert('기본 계좌가 없습니다.');
-    if (confirm('새 모임 통장을 개설하시겠습니까? (기본 계좌와 연결)')) {
+    if (confirm('새 적금계좌를 개설하시겠습니까? (일반계좌와 연결)')) {
       createSavingMutation.mutate(primaryAccount.accountAddress, {
-        onSuccess: () => alert('모임 통장이 성공적으로 개설되었습니다!'),
-        onError: (err: any) => alert(err.response?.data?.message || '모임 통장 개설 실패')
+        onSuccess: () => alert('적금계좌가 성공적으로 개설되었습니다!'),
+        onError: (err: any) => alert(err.response?.data?.message || '적금계좌 개설 실패')
       });
     }
   };
@@ -75,7 +75,7 @@ export function AccountList() {
     <div className="space-y-6">
       <section className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full blur-3xl -mr-10 -mt-10 opacity-60 pointer-events-none" />
-        <h2 className="text-sm font-semibold text-gray-500 mb-2">기본 내 지갑</h2>
+        <h2 className="text-sm font-semibold text-gray-500 mb-2">내 일반계좌</h2>
         <div className="flex items-baseline gap-1">
           <p className="text-4xl font-extrabold text-gray-900 tracking-tight">
             {primaryAccount ? primaryAccount.balance.toLocaleString() : 0}
@@ -95,9 +95,9 @@ export function AccountList() {
 
       <section>
         <div className="flex justify-between items-center mb-3 px-1">
-          <h3 className="text-base font-bold text-gray-900">모임 통장</h3>
+          <h3 className="text-base font-bold text-gray-900">적금계좌</h3>
           <button onClick={handleCreateSaving} disabled={createSavingMutation.isPending} className="text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors disabled:opacity-50">
-            {createSavingMutation.isPending ? '개설 중...' : '+ 새 모임 개설'}
+            {createSavingMutation.isPending ? '개설 중...' : '+ 새 적금계좌 개설'}
           </button>
         </div>
         {savingAccounts.length > 0 ? (
@@ -105,7 +105,7 @@ export function AccountList() {
             {savingAccounts.map(account => (
               <div key={account.accountAddress} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex justify-between items-center transition hover:border-gray-300 cursor-pointer">
                 <div>
-                  <h4 className="text-sm font-bold text-gray-800">모임통장</h4>
+                  <h4 className="text-sm font-bold text-gray-800">적금계좌</h4>
                   <p className="text-xs text-gray-400 mt-1 uppercase tracking-wider font-mono">{account.accountAddress.substring(0, 10)}...</p>
                 </div>
                 <div className="text-right">
@@ -116,7 +116,7 @@ export function AccountList() {
           </div>
         ) : (
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 text-center">
-            <p className="text-sm text-gray-500">개설된 모임 통장이 없습니다.</p>
+            <p className="text-sm text-gray-500">개설된 적금계좌가 없습니다.</p>
           </div>
         )}
       </section>
