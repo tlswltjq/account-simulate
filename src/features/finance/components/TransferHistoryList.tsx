@@ -37,9 +37,10 @@ export function TransferHistoryList() {
       ) : (
         <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 divide-y divide-gray-50">
           {history.map((tx: any, idx: number) => {
-            const isDeposit = tx.receiverAccountAddress === primaryAccount?.accountAddress;
-            const rawDisplayAccount = isDeposit ? tx.senderAccountAddress : tx.receiverAccountAddress;
-            const displayAccount = rawDisplayAccount === '00000000-0000-0000-0000-000000000000' ? '충전' : rawDisplayAccount;
+            const isSystemAccount = tx.senderAccountAddress === '00000000-0000-0000-0000-000000000000' || tx.receiverAccountAddress === '00000000-0000-0000-0000-000000000000';
+            const isDeposit = isSystemAccount ? true : tx.receiverAccountAddress === primaryAccount?.accountAddress;
+            const rawDisplayAccount = isSystemAccount ? '00000000-0000-0000-0000-000000000000' : (isDeposit ? tx.senderAccountAddress : tx.receiverAccountAddress);
+            const displayAccount = isSystemAccount ? '충전' : rawDisplayAccount;
             return (
               <div key={idx} className="py-4 px-2 flex justify-between items-center">
                 <div>
