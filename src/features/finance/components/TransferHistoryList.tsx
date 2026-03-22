@@ -133,15 +133,14 @@ export function TransferHistoryList({ account, onClose }: { account?: Account | 
           </div>
         ) : (
           history.map((tx: any, idx: number) => {
-            const isSystemAccount = tx.senderAccountAddress === '00000000-0000-0000-0000-000000000000' || tx.receiverAccountAddress === '00000000-0000-0000-0000-000000000000';
-            const isDeposit = isSystemAccount ? true : tx.receiverAccountAddress === accountAddress;
-            const rawDisplayAccount = isSystemAccount ? '00000000-0000-0000-0000-000000000000' : (isDeposit ? tx.senderAccountAddress : tx.receiverAccountAddress);
-            const displayAccount = isSystemAccount ? '충전' : rawDisplayAccount;
+            const isSystemAccount = tx.counterpartyAddress === '00000000-0000-0000-0000-000000000000';
+            const isDeposit = tx.amount > 0;
+            const displayAccount = isSystemAccount ? '충전' : tx.counterpartyAddress;
             return (
               <div key={idx} className="py-4 px-4 flex justify-between items-center bg-transparent group hover:bg-gray-50 transition-colors rounded-xl mx-2 my-1">
                 <div>
                   <p className="text-sm font-bold text-gray-900 group-hover:text-blue-900 transition-colors">{displayAccount || '알 수 없음'}</p>
-                  <p className="text-xs text-gray-500 mt-1">{tx.createdAt ? new Date(tx.createdAt).toLocaleDateString() : ''}</p>
+                  <p className="text-xs text-gray-500 mt-1">{tx.createdAt ? new Date(tx.createdAt).toLocaleString() : ''}</p>
                 </div>
                 <div className="text-right">
                   <p className={`font-bold text-sm ${isDeposit ? 'text-blue-600' : 'text-gray-900'}`}>

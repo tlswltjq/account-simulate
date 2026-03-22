@@ -27,8 +27,7 @@ export const useAccounts = () => {
 
 export interface TransferResponse {
   amount: number;
-  senderAccountAddress: string;
-  receiverAccountAddress: string;
+  counterpartyAddress: string;
   createdAt: string;
 }
 
