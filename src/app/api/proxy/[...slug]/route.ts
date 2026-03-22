@@ -20,10 +20,18 @@ async function handleProxyRequest(req: NextRequest, { params }: { params: Promis
   }
 
   try {
+    let reqBody: string | undefined = undefined;
+    if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+      const text = await req.text();
+      if (text) {
+        reqBody = text;
+      }
+    }
+
     const res = await fetch(url, {
       method: req.method,
       headers,
-      body: ['POST', 'PUT', 'PATCH'].includes(req.method) ? JSON.stringify(await req.json()) : undefined,
+      body: reqBody,
     });
 
     const data = await res.json().catch(() => null);
