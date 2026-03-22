@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "@/shared/providers/QueryProvider";
+import { Sidebar } from "@/components/layout/Sidebar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,8 +31,11 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-gray-50 text-gray-900">
         <QueryProvider>
-          <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-white shadow-xl relative overflow-hidden">
-            {children}
+          <div className="flex min-h-screen w-full bg-gray-50">
+            <Sidebar />
+            <div className="flex-1 flex flex-col bg-white">
+              {children}
+            </div>
           </div>
         </QueryProvider>
       </body>

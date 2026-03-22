@@ -1,35 +1,44 @@
-import { LogoutButton } from '@/features/auth/components/LogoutButton';
+'use client';
+
+import { useState } from 'react';
 import { AccountList } from '@/features/finance/components/AccountList';
 import { TransferHistoryList } from '@/features/finance/components/TransferHistoryList';
-import Link from 'next/link';
+import { Account } from '@/features/finance/api/queries';
 
 export default function HomePage() {
-  return (
-    <main className="flex flex-1 flex-col h-full bg-gray-50 pb-20 overflow-y-auto overflow-x-hidden">
-      <header className="sticky top-0 z-10 px-6 py-4 bg-white/80 backdrop-blur-md border-b border-gray-100 flex justify-between items-center">
-        <h1 className="text-xl font-extrabold text-gray-900 tracking-tight">Mini Pay</h1>
-        <LogoutButton />
-      </header>
-      
-      <div className="p-6 flex-1 space-y-6">
-        <AccountList />
-        <TransferHistoryList />
-      </div>
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
 
-      <nav className="absolute bottom-0 w-full bg-white border-t border-gray-100 flex items-center justify-around py-3 pb-8">
-        <Link href="/" className="flex flex-col items-center gap-1 text-blue-600">
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-          <span className="text-[10px] font-bold">홈</span>
-        </Link>
-        <Link href="/friends" className="flex flex-col items-center gap-1 text-gray-400 hover:text-blue-600 transition-colors">
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-          <span className="text-[10px] font-bold">친구</span>
-        </Link>
-        <Link href="/splitbills" className="flex flex-col items-center gap-1 text-gray-400 hover:text-blue-600 transition-colors">
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-          <span className="text-[10px] font-bold">정산</span>
-        </Link>
-      </nav>
-    </main>
+  return (
+    <div className="flex flex-col min-h-screen relative overflow-hidden bg-gray-50">
+      {/* 메인 계좌 목록 */}
+      <main className="flex-1 w-full max-w-3xl mx-auto px-6 py-8 h-full overflow-y-auto pb-32">
+        <AccountList selectedAccount={selectedAccount} onSelectAccount={setSelectedAccount} />
+      </main>
+
+      {/* 오버레이 배경 (화면 어두워짐 효과) */}
+      <div 
+        className={`fixed inset-0 bg-black/30 backdrop-blur-[2px] z-40 transition-opacity duration-300 ${
+          selectedAccount ? 'opacity-100 visible' : 'opacity-0 invisible'
+        }`}
+        onClick={() => setSelectedAccount(null)}
+      />
+
+      {/* 우측에서 슬라이드되는 내역 카드 패널 */}
+      <div 
+        className={`fixed top-0 right-0 h-full w-full sm:w-[460px] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-out border-l border-gray-100 flex flex-col ${
+          selectedAccount ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <div className="flex-1 overflow-y-auto p-6 md:p-8 h-full">
+          {/* 애니메이션 상태에서도 컴포넌트를 유지하기 위해 props 자체만 내려줌 */}
+          {selectedAccount && (
+            <TransferHistoryList 
+              account={selectedAccount} 
+              onClose={() => setSelectedAccount(null)} 
+            />
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
