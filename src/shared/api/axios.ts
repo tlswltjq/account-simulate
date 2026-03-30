@@ -1,8 +1,13 @@
 import axios from 'axios';
 
-// 브라우저의 Mixed Content 브록(보안)을 피하기 위해, 같은 도메인의 /api/proxy 라우트로 모든 요청을 보냅니다.
+export const API_BASE_URL = process.env.NODE_ENV === 'development' 
+  ? 'http://localhost:8080/api/v1' 
+  : '/api/proxy';
+
+// 배포 환경에서는 같은 도메인의 /api/proxy 라우트로 요청을 보냅니다.
+// 하지만 로컬 개발 도중에는 직접 백엔드(localhost:8080)를 호출합니다.
 export const api = axios.create({
-  baseURL: '/api/proxy',
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -59,8 +64,8 @@ api.interceptors.response.use(
           throw new Error('No refresh token');
         }
 
-        // 프록시 라우터로 reissue 전송
-        const { data } = await axios.post('/api/proxy/auth/reissue', { refreshToken });
+        // reissue를 전송할 때도 환경에 따라 동적인 Base URL 사용
+        const { data } = await axios.post(`${API_BASE_URL}/auth/reissue`, { refreshToken });
         
         const newAccessToken = data.data?.accessToken;
         const newRefreshToken = data.data?.refreshToken;
@@ -75,7 +80,11 @@ api.interceptors.response.use(
         if (typeof window !== 'undefined') {
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
-          window.location.href = '/login';
+          
+          const currentPath = window.location.pathname;
+          if (currentPath !== '/login' && currentPath !== '/signup') {
+            window.location.href = '/login';
+          }
         }
         return Promise.reject(err);
       } finally {

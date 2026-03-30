@@ -15,7 +15,7 @@ interface MeResponse {
   nickname: string;
 }
 
-function useMe() {
+function useMe(enabled: boolean = true) {
   return useQuery({
     queryKey: ['me'],
     queryFn: async () => {
@@ -24,15 +24,17 @@ function useMe() {
     },
     staleTime: 1000 * 60 * 5, // 5분 캐싱
     retry: false, // 로그인 안된 상태면 401/403 등 실패시 불필요한 재시도 방지
+    enabled,
   });
 }
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { data: me, isLoading } = useMe();
+  const isAuthPage = pathname === '/login' || pathname === '/signup';
+  const { data: me, isLoading } = useMe(!isAuthPage);
 
   // 로그인 페이지나 회원가입 페이지에서는 사이드바를 숨깁니다.
-  if (pathname === '/login' || pathname === '/signup') {
+  if (isAuthPage) {
     return null;
   }
 
