@@ -124,17 +124,18 @@ function TransferForm() {
 
 function RejectModal({ transferId, onClose }: { transferId: number; onClose: () => void }) {
   const [reason, setReason] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const { mutate: rejectTransfer, isPending } = useRejectTransfer();
 
   const handleReject = () => {
-    if (!reason.trim()) return alert('거절 사유를 입력해주세요.');
+    if (!reason.trim()) { setError('거절 사유를 입력해주세요.'); return; }
+    setError(null);
     rejectTransfer({ transferId, reason }, {
-      onSuccess: () => {
-        alert('이체가 거절되었습니다.');
-        onClose();
-      },
+      onSuccess: () => onClose(),
       onError: (err: any) => {
-        alert(err.response?.data?.message || '거절 처리에 실패했습니다.');
+        const msg = err.response?.data?.message || err.message || '거절 처리에 실패했습니다.';
+        console.error('[reject error]', err.response?.data ?? err);
+        setError(msg);
       },
     });
   };
@@ -155,8 +156,9 @@ function RejectModal({ transferId, onClose }: { transferId: number; onClose: () 
             rows={4}
             placeholder="거절 사유를 입력해주세요."
             value={reason}
-            onChange={(e) => setReason(e.target.value)}
+            onChange={(e) => { setReason(e.target.value); setError(null); }}
           />
+          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
         </div>
         <div className="flex gap-3">
           <button
@@ -178,9 +180,73 @@ function RejectModal({ transferId, onClose }: { transferId: number; onClose: () 
   );
 }
 
+function TransferCard({ item, onReject }: { item: { transferId: number; address: string; amount: number; status: string }; onReject: (id: number) => void }) {
+  const { mutate: acceptTransfer, isPending: isAccepting } = useAcceptTransfer();
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const handleAccept = () => {
+    setFeedback(null);
+    acceptTransfer(item.transferId, {
+      onSuccess: () => setFeedback({ type: 'success', message: '이체가 수락되었습니다.' }),
+      onError: (err: any) => {
+        const msg = err.response?.data?.message || err.message || '수락 처리에 실패했습니다.';
+        console.error('[accept error]', err.response?.data ?? err);
+        setFeedback({ type: 'error', message: msg });
+      },
+    });
+  };
+
+  return (
+    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 transition-all hover:shadow-md">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center text-orange-500">
+            <Clock className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="font-bold text-gray-900 text-lg">{item.amount.toLocaleString()}원</p>
+            <p className="text-sm text-gray-500 mt-1">{item.address}</p>
+          </div>
+        </div>
+        <div className="px-4 py-2 bg-orange-50 text-orange-600 font-bold text-sm rounded-full">
+          {item.status}
+        </div>
+      </div>
+
+      {feedback && (
+        <div className={`mt-3 px-4 py-2 rounded-xl text-sm font-medium ${feedback.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+          {feedback.message}
+        </div>
+      )}
+
+      <div className="flex gap-3 mt-4 pt-4 border-t border-gray-100">
+        <button
+          onClick={handleAccept}
+          disabled={isAccepting}
+          className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+        >
+          {isAccepting ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <CheckCircle2 className="w-4 h-4" />
+          )}
+          수락
+        </button>
+        <button
+          onClick={() => onReject(item.transferId)}
+          disabled={isAccepting}
+          className="flex-1 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+        >
+          <X className="w-4 h-4" />
+          거절
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function PendingTransferList() {
   const { data, isLoading, error } = useReviewRequestedTransfers();
-  const { mutate: acceptTransfer, isPending: isAccepting } = useAcceptTransfer();
   const [rejectTargetId, setRejectTargetId] = useState<number | null>(null);
 
   if (isLoading) {
@@ -215,13 +281,6 @@ function PendingTransferList() {
     );
   }
 
-  const handleAccept = (transferId: number) => {
-    acceptTransfer(transferId, {
-      onSuccess: () => alert('이체가 수락되었습니다.'),
-      onError: (err: any) => alert(err.response?.data?.message || '수락 처리에 실패했습니다.'),
-    });
-  };
-
   return (
     <>
       {rejectTargetId !== null && (
@@ -229,40 +288,7 @@ function PendingTransferList() {
       )}
       <div className="space-y-4 max-w-3xl mx-auto">
         {transfers.map((item) => (
-          <div key={item.transferId} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 transition-all hover:shadow-md">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center text-orange-500">
-                  <Clock className="w-6 h-6" />
-                </div>
-                <div>
-                  <p className="font-bold text-gray-900 text-lg">{item.amount.toLocaleString()}원</p>
-                  <p className="text-sm text-gray-500 mt-1">{item.address}</p>
-                </div>
-              </div>
-              <div className="px-4 py-2 bg-orange-50 text-orange-600 font-bold text-sm rounded-full">
-                {item.status}
-              </div>
-            </div>
-            <div className="flex gap-3 mt-4 pt-4 border-t border-gray-100">
-              <button
-                onClick={() => handleAccept(item.transferId)}
-                disabled={isAccepting}
-                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                수락
-              </button>
-              <button
-                onClick={() => setRejectTargetId(item.transferId)}
-                disabled={isAccepting}
-                className="flex-1 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
-              >
-                <X className="w-4 h-4" />
-                거절
-              </button>
-            </div>
-          </div>
+          <TransferCard key={item.transferId} item={item} onReject={setRejectTargetId} />
         ))}
       </div>
     </>
