@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useTransfer, useTransferWithReview } from '@/features/finance/api/mutations';
+import { useTransfer, useTransferWithReview, useAcceptTransfer, useRejectTransfer } from '@/features/finance/api/mutations';
 import { useReviewRequestedTransfers } from '@/features/finance/api/queries';
-import { Send, Clock, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Send, Clock, AlertCircle, ArrowRight, CheckCircle2, X } from 'lucide-react';
 
 function TransferForm() {
   const [senderAccountNumber, setSenderAccountNumber] = useState('');
@@ -122,8 +122,66 @@ function TransferForm() {
   );
 }
 
+function RejectModal({ transferId, onClose }: { transferId: number; onClose: () => void }) {
+  const [reason, setReason] = useState('');
+  const { mutate: rejectTransfer, isPending } = useRejectTransfer();
+
+  const handleReject = () => {
+    if (!reason.trim()) return alert('거절 사유를 입력해주세요.');
+    rejectTransfer({ transferId, reason }, {
+      onSuccess: () => {
+        alert('이체가 거절되었습니다.');
+        onClose();
+      },
+      onError: (err: any) => {
+        alert(err.response?.data?.message || '거절 처리에 실패했습니다.');
+      },
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-3xl p-8 shadow-xl w-full max-w-md mx-4">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-extrabold text-gray-900">이체 거절</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        <div className="mb-6">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">거절 사유</label>
+          <textarea
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-400 focus:border-transparent outline-none transition-all resize-none"
+            rows={4}
+            placeholder="거절 사유를 입력해주세요."
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl font-bold transition-all"
+          >
+            취소
+          </button>
+          <button
+            onClick={handleReject}
+            disabled={isPending}
+            className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-bold transition-all disabled:opacity-50"
+          >
+            {isPending ? '처리 중...' : '거절하기'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PendingTransferList() {
   const { data, isLoading, error } = useReviewRequestedTransfers();
+  const { mutate: acceptTransfer, isPending: isAccepting } = useAcceptTransfer();
+  const [rejectTargetId, setRejectTargetId] = useState<number | null>(null);
 
   if (isLoading) {
     return (
@@ -157,27 +215,57 @@ function PendingTransferList() {
     );
   }
 
+  const handleAccept = (transferId: number) => {
+    acceptTransfer(transferId, {
+      onSuccess: () => alert('이체가 수락되었습니다.'),
+      onError: (err: any) => alert(err.response?.data?.message || '수락 처리에 실패했습니다.'),
+    });
+  };
+
   return (
-    <div className="space-y-4 max-w-3xl mx-auto">
-      {transfers.map((item, idx) => (
-        <div key={idx} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center justify-between transition-all hover:shadow-md">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center text-orange-500">
-              <Clock className="w-6 h-6" />
+    <>
+      {rejectTargetId !== null && (
+        <RejectModal transferId={rejectTargetId} onClose={() => setRejectTargetId(null)} />
+      )}
+      <div className="space-y-4 max-w-3xl mx-auto">
+        {transfers.map((item) => (
+          <div key={item.transferId} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 transition-all hover:shadow-md">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center text-orange-500">
+                  <Clock className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900 text-lg">{item.amount.toLocaleString()}원</p>
+                  <p className="text-sm text-gray-500 mt-1">{item.address}</p>
+                </div>
+              </div>
+              <div className="px-4 py-2 bg-orange-50 text-orange-600 font-bold text-sm rounded-full">
+                {item.status}
+              </div>
             </div>
-            <div>
-              <p className="font-bold text-gray-900 text-lg">{item.amount.toLocaleString()}원</p>
-              <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">
-                <span>{item.address}</span>
-              </p>
+            <div className="flex gap-3 mt-4 pt-4 border-t border-gray-100">
+              <button
+                onClick={() => handleAccept(item.transferId)}
+                disabled={isAccepting}
+                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                수락
+              </button>
+              <button
+                onClick={() => setRejectTargetId(item.transferId)}
+                disabled={isAccepting}
+                className="flex-1 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                <X className="w-4 h-4" />
+                거절
+              </button>
             </div>
           </div>
-          <div className="px-4 py-2 bg-orange-50 text-orange-600 font-bold text-sm rounded-full">
-            {item.status}
-          </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    </>
   );
 }
 

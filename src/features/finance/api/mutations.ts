@@ -73,7 +73,7 @@ export const useCreateSavingAccount = () => {
 
 export const useCreateGeneralAccount = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async () => {
       const { data } = await api.post('/finance/accounts/general');
@@ -81,6 +81,35 @@ export const useCreateGeneralAccount = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    },
+  });
+};
+
+export const useAcceptTransfer = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (transferId: number) => {
+      const { data } = await api.post(`/finance/transfers/review/${transferId}/accept`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reviewRequestedTransfers'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    },
+  });
+};
+
+export const useRejectTransfer = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ transferId, reason }: { transferId: number; reason: string }) => {
+      const { data } = await api.post(`/finance/transfers/review/${transferId}/reject`, { reason });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reviewRequestedTransfers'] });
     },
   });
 };

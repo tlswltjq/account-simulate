@@ -44,6 +44,7 @@ export const useTransferHistory = (accountAddress?: string) => {
 };
 
 export interface PendingTransfer {
+  transferId: number;
   address: string;
   amount: number;
   status: string;
