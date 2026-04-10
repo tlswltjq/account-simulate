@@ -42,3 +42,24 @@ export const useTransferHistory = (accountAddress?: string) => {
     retry: 1,
   });
 };
+
+export interface PendingTransfer {
+  address: string;
+  amount: number;
+  status: string;
+}
+
+export interface ReviewRequestedTransferListResponse {
+  reviewRequested: PendingTransfer[];
+}
+
+export const useReviewRequestedTransfers = () => {
+  return useQuery({
+    queryKey: ['reviewRequestedTransfers'],
+    queryFn: async () => {
+      const { data } = await api.get('/finance/transfers/review');
+      return data.data as ReviewRequestedTransferListResponse;
+    },
+    retry: 1,
+  });
+};

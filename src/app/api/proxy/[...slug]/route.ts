@@ -18,6 +18,9 @@ async function handleProxyRequest(req: NextRequest, { params }: { params: Promis
   if (authHeader) {
     headers.set('Authorization', authHeader);
   }
+  
+  // localtunnel 웰컴 페이지 우회 헤더 (무료 터널링 시 JSON 응답 대신 HTML 경고창이 응답되는 것 방지)
+  headers.set('Bypass-Tunnel-Reminder', 'true');
 
   try {
     let reqBody: string | undefined = undefined;

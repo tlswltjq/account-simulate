@@ -41,6 +41,22 @@ export const useTransfer = () => {
   });
 };
 
+export const useTransferWithReview = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (req: TransferRequest) => {
+      const { data } = await api.post('/finance/transfers/review', req);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['transferHistory'] });
+      queryClient.invalidateQueries({ queryKey: ['reviewRequestedTransfers'] });
+    },
+  });
+};
+
 export const useCreateSavingAccount = () => {
   const queryClient = useQueryClient();
   
